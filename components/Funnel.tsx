@@ -534,20 +534,28 @@ function Profile(p: ViewProps) {
 }
 
 // ---------- 30 Paywall ----------
-const OFFER_SECONDS = 10 * 60;
 let offerStartedAt = 0; // survives back/forward inside one visit
-
-function useCountdown() {
+function offerSeconds() {
+  if (typeof window === "undefined") return 600;
+  const v = Number(new URLSearchParams(window.location.search).get("offer_seconds"));
+  return v > 0 ? v : 600;
+}
+function offerLeft() {
   if (!offerStartedAt) offerStartedAt = Date.now();
-  const calc = () => Math.max(0, OFFER_SECONDS - Math.floor((Date.now() - offerStartedAt) / 1000));
-  const [left, setLeft] = useState(calc);
+  return Math.max(0, offerSeconds() - Math.floor((Date.now() - offerStartedAt) / 1000));
+}
+export function offerExpired() {
+  return offerStartedAt > 0 && offerLeft() === 0;
+}
+function useCountdown() {
+  const [left, setLeft] = useState(offerLeft);
   useEffect(() => {
-    const id = setInterval(() => setLeft(calc()), 1000);
+    const id = setInterval(() => setLeft(offerLeft()), 1000);
     return () => clearInterval(id);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
   const mm = String(Math.floor(left / 60)).padStart(2, "0");
   const ss = String(left % 60).padStart(2, "0");
-  return `${mm}:${ss}`;
+  return { label: `${mm}:${ss}`, expired: left === 0 };
 }
 
 const SAMPLE_REVIEWS = [
@@ -564,7 +572,8 @@ const RESEARCH = [
 
 function Paywall(p: ViewProps) {
   const { t, a } = p;
-  const timer = useCountdown();
+  const { label: timer, expired } = useCountdown();
+  useEffect(() => { if (expired) track("discount_expired"); }, [expired]);
   const [gift, setGift] = useState(false);
   const [sticky, setSticky] = useState(false);
   const plansRef = useRef<HTMLDivElement>(null);
@@ -572,7 +581,7 @@ function Paywall(p: ViewProps) {
   const cta2Ref = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const id = setTimeout(() => setGift(true), 400);
+    const id = setTimeout(() => setGift(!offerExpired()), 400);
     return () => clearTimeout(id);
   }, []);
   // Sticky CTA once the first CTA has scrolled out of view.
@@ -610,7 +619,7 @@ function Paywall(p: ViewProps) {
   const pick = (id: string) => {
     p.setPlan(id);
     const pl = PLANS.find((x) => x.id === id)!;
-    track("plan_selected", { plan: id, price: pl.price });
+    track("plan_selected", { plan: id, price: expired ? pl.old : pl.price, discount: !expired });
   };
   const benefits = [
     ["💬", t("Flirty chats with {her}, any time of day")],
@@ -622,6 +631,7 @@ function Paywall(p: ViewProps) {
     ["✨", "Her look and personality, exactly as you chose"],
   ];
   const ctaLabel = t("Reply to {her}");
+  const selected = PLANS.find((x) => x.id === p.plan) || PLANS[1];
   const plansBlock = (ref: React.RefObject<HTMLButtonElement | null>) => (
     <>
       <div className="plans">
@@ -630,26 +640,37 @@ function Paywall(p: ViewProps) {
             {pl.popular && <span className="badge pop">MOST POPULAR</span>}
             {pl.best && <span className="badge best">BEST VALUE</span>}
             <span className="radio">{p.plan === pl.id ? "✓" : ""}</span>
-            <span className="plan-main"><b>{pl.label}</b><small>then {pl.renew}</small></span>
-            <span className="plan-price">
-              <span className="save">-{Math.round((1 - pl.price / pl.old) * 100)}%</span>
-              <s>${pl.old}</s>
-              <b>${pl.price}</b>
-              <small>${(pl.price / pl.days).toFixed(2)} / day</small>
-            </span>
+            <span className="plan-main"><b>{pl.label}</b>{!expired && <small>then {pl.renew}</small>}</span>
+            {expired ? (
+              <span className="plan-price">
+                <b>${pl.old}</b>
+                <small>${(pl.old / pl.days).toFixed(2)} / day</small>
+              </span>
+            ) : (
+              <span className="plan-price">
+                <span className="save">-{Math.round((1 - pl.price / pl.old) * 100)}%</span>
+                <s>${pl.old}</s>
+                <b>${pl.price}</b>
+                <small>${(pl.price / pl.days).toFixed(2)} / day</small>
+              </span>
+            )}
           </button>
         ))}
       </div>
       <button ref={ref} className="btn cta" onClick={p.next}>{ctaLabel}</button>
-      <div className="trust"><span>🔒 Discreet billing</span><span>✕ Cancel anytime in 2 taps</span><span>🛡 Your chats are private</span></div>
+      <p className="disclaimer">
+        By selecting a payment method and proceeding, you agree that if you don&apos;t cancel prior to the end of the current period,
+        you will automatically be charged the full price of ${selected.old} {selected.every} until you cancel in settings. Learn more in{" "}
+        <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
+      </p>
     </>
   );
 
   return (
     <div className="col pw">
       <div className="timer">
-        <div><small>Your discount is reserved for</small><b>{timer}</b></div>
-        <button onClick={toPlans}>Get discount</button>
+        <div>{expired ? <><small>Your personal discount</small><b>Expired</b></> : <><small>Your discount is reserved for</small><b>{timer}</b></>}</div>
+        {!expired && <button onClick={toPlans}>Get discount</button>}
       </div>
 
       <div className="portrait wide"><img src={`/img/${p.eth}/portrait/paywall.jpg`} alt="" /></div>
@@ -674,11 +695,13 @@ function Paywall(p: ViewProps) {
       </div>
 
       <h2 className="offer-title" ref={plansRef}>{t("{her} is waiting to send you her hot photos")}</h2>
-      <div className="offer-head">Your personal discount: <span className="pct">up to -60%</span></div>
+      {expired
+        ? <div className="offer-head">Your personal discount has expired</div>
+        : <div className="offer-head">Your personal discount: <span className="pct">up to -60%</span></div>}
       {plansBlock(ctaRef)}
 
       <div className="reviews">
-        <div className="card-title">What men say about their evenings</div>
+        <h2 className="section-title">What our users say about our AI models</h2>
         {SAMPLE_REVIEWS.map((r) => (
           <div key={r.text} className="card review">
             <div className="stars">★★★★★</div>
@@ -686,9 +709,9 @@ function Paywall(p: ViewProps) {
             <small>{r.who}</small>
           </div>
         ))}
-        <p className="fine">Sample reviews for the demo. Real customer reviews go here.</p>
       </div>
 
+      <h2 className="section-title">{t("{her}'s behaviour is built on research into what men need")}</h2>
       <div className="research">
         <div className="card-title">What the research says</div>
         {RESEARCH.map((r) => (
@@ -699,13 +722,16 @@ function Paywall(p: ViewProps) {
         ))}
       </div>
 
+      <h2 className="section-title">Frequently asked questions</h2>
       <div className="faq">
+        <details><summary>Does she remember our conversations?</summary><p>Yes. {p.her} remembers what you tell her and what you like, so every chat picks up where you left off.</p></details>
+        <details><summary>What happens after I pay?</summary><p>You get instant access to {p.her} in your browser: chat, photos and voice messages. No app to install.</p></details>
         <details><summary>Is it discreet?</summary><p>Yes. The charge has a neutral name on your statement, and your chats are private.</p></details>
         <details><summary>Can I cancel any time?</summary><p>Yes, in 2 taps in your account settings. You keep access until the end of the paid period.</p></details>
         <details><summary>Is {p.her} a real person?</summary><p>No. {p.her} is an AI companion, created from your answers. She is available any time you are.</p></details>
       </div>
 
-      <h2 className="offer-title small">{t("Get your discount and meet {her} tonight")}</h2>
+      <h2 className="offer-title small">{t(expired ? "Meet {her} tonight" : "Get your discount and meet {her} tonight")}</h2>
       {plansBlock(cta2Ref)}
 
       <div className="card guarantee">
@@ -720,7 +746,7 @@ function Paywall(p: ViewProps) {
       {sticky && (
         <div className="sticky-cta">
           <div className="sticky-in">
-            <span><small>Discount ends in</small><b>{timer}</b></span>
+            <span>{expired ? <><small>Discount</small><b>Expired</b></> : <><small>Discount ends in</small><b>{timer}</b></>}</span>
             <button className="btn cta" onClick={p.next}>{ctaLabel}</button>
           </div>
         </div>
@@ -745,15 +771,16 @@ function Paywall(p: ViewProps) {
 // ---------- 31 Checkout ----------
 function Checkout(p: ViewProps) {
   const pl = PLANS.find((x) => x.id === p.plan)!;
-  const buy = () => { track("demo_purchase_completed", { plan: pl.id, price: pl.price }); p.next(); };
+  const price = offerExpired() ? pl.old : pl.price;
+  const buy = () => { track("demo_purchase_completed", { plan: pl.id, price, discount: price !== pl.old }); p.next(); };
   return (
     <div className="col">
       <div className="pill">CHECKOUT · DEMO: no payment is taken</div>
       <h1 className="title">Your plan</h1>
       <div className="card">
-        <div className="sumrow"><span>{pl.label} plan</span><b>${pl.price}</b></div>
+        <div className="sumrow"><span>{pl.label} plan</span><b>${price}</b></div>
         <div className="sumrow dim"><span>Then</span><span>{pl.renew}</span></div>
-        <div className="sumrow total"><span>Total today</span><b>${pl.price}</b></div>
+        <div className="sumrow total"><span>Total today</span><b>${price}</b></div>
       </div>
       <div className="card demo-card">
         <div className="fake-field">Card number</div>

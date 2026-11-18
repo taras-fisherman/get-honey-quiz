@@ -303,3 +303,7 @@ a.legal { color: var(--accent); text-decoration: underline; text-underline-offse
 .trust-strip { flex-wrap: nowrap; gap: 5px; left: 8px; right: 8px; }
 .trust-strip span { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
 .offer-title.small { font-size: 22px; margin-top: 16px; }
+.disclaimer { font-size: 11px; line-height: 1.5; color: var(--muted); text-align: center; margin-top: -2px; }
+.disclaimer a.legal { font-weight: 600; }
+.section-title { font-size: 22px; font-weight: 800; line-height: 1.25; text-align: center; margin-top: 14px; }
+.reviews .section-title { margin-bottom: 2px; }
