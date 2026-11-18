@@ -231,8 +231,8 @@ export const SCREENS: Screen[] = [
     img: (_e, o) => `/img/common/scenario/${o}.jpg`,
   },
   { n: 27, id: "loader", block: "result", kind: "loader" },
-  { n: 28, id: "email", block: "result", kind: "email", q: "Enter your email to save {her}", sub: "Get access to her profile and your personal plan." },
-  { n: 29, id: "profile", block: "result", kind: "profile" },
+  { n: 28, id: "profile", block: "result", kind: "profile" },
+  { n: 29, id: "email", block: "result", kind: "email", q: "Enter your email to save {her}", sub: "Save her profile and start chatting." },
   { n: 30, id: "paywall", block: "pay", kind: "paywall" },
   { n: 31, id: "checkout", block: "pay", kind: "checkout" },
   { n: 32, id: "success", block: "pay", kind: "success" },
@@ -243,9 +243,9 @@ const QUESTION_KINDS = new Set(["photo", "single", "multi", "herName", "youName"
 export const QUESTION_IDS = SCREENS.filter((s) => QUESTION_KINDS.has(s.kind)).map((s) => s.id);
 
 export const PLANS = [
-  { id: "1m", label: "1 month", price: 24.99, renew: "$49.99 / month", days: 30 },
-  { id: "3m", label: "3 months", price: 49.99, renew: "$109.99 / 3 months", days: 90 },
-  { id: "12m", label: "12 months", price: 119.99, renew: "$299.99 / year", days: 365, best: true },
+  { id: "1m", label: "1 month", price: 24.99, old: 49.99, renew: "$49.99 / month", days: 30 },
+  { id: "3m", label: "3 months", price: 49.99, old: 109.99, renew: "$109.99 / 3 months", days: 90 },
+  { id: "12m", label: "12 months", price: 119.99, old: 299.99, renew: "$299.99 / year", days: 365, best: true },
 ];
 
 // ---------- personalization ----------

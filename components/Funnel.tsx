@@ -192,8 +192,12 @@ function Start({ next }: { next: () => void }) {
       <p className="sub">Create your AI girlfriend in 2 minutes. She listens first, then she is all yours.</p>
       <Bottom>
         <button className="btn" onClick={next}>Meet her</button>
-        <p className="fine">By continuing you confirm you are 18+ and agree to the Terms of Use and Privacy Policy.</p>
-        <p className="fine">Concept funnel for Get Honey · demo, no real payments.</p>
+        <p className="fine">
+          By continuing you confirm you are 18+ and agree to the{" "}
+          <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Use</a>
+          {" "}and{" "}
+          <a className="legal" href="https://get-honey.today/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+        </p>
       </Bottom>
     </div>
   );
@@ -288,6 +292,7 @@ function HerName(p: ViewProps) {
       <QHead q={p.s.q} sub={p.s.sub} t={t} />
       <input className="input" placeholder="Type her name" maxLength={20} value={p.herName}
         onChange={(e) => p.setHerName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} />
+      <p className="chips-label">Can&apos;t think of one? Pick one of these</p>
       <div className="chips">
         {NAME_CHIPS.map((c) => (
           <button key={c} className={`chip ${p.herName === c ? "on" : ""}`} onClick={() => p.setHerName(c)}>{c}</button>
@@ -322,14 +327,18 @@ function YouName(p: ViewProps) {
 function Fact({ next }: { next: () => void }) {
   return (
     <div className="col">
-      <div className="fact-num">15%</div>
-      <h1 className="title">You&apos;re not the only one.</h1>
-      <p className="sub">15% of men in the US say they have no close friends at all. In 1990 it was 3%.</p>
-      <div className="bars">
-        <div className="bar-row"><span>1990</span><div className="bar"><div style={{ width: "20%" }} /></div><b>3%</b></div>
-        <div className="bar-row"><span>2021</span><div className="bar"><div style={{ width: "100%" }} /></div><b>15%</b></div>
+      <div className="fact-num">1 in 2</div>
+      <div className="people" aria-hidden="true">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <svg key={i} className={i % 2 === 0 ? "on" : ""} viewBox="0 0 24 40" width="26" height="44">
+            <circle cx="12" cy="7" r="6" />
+            <path d="M3 40V22a9 9 0 0 1 18 0v18z" />
+          </svg>
+        ))}
       </div>
-      <p className="source">Source: Survey Center on American Life, 2021</p>
+      <h1 className="title">You&apos;re not the only one.</h1>
+      <p className="sub">About 1 in 2 adults in America say they feel lonely. Wanting someone to talk to at the end of the day is completely normal.</p>
+      <p className="source center-text">Source: U.S. Surgeon General&apos;s Advisory on Loneliness and Isolation, 2023</p>
       <Bottom><button className="btn" onClick={next}>Continue</button></Bottom>
     </div>
   );
@@ -383,16 +392,11 @@ function SliderQ(p: ViewProps & { s: Extract<Screen, { kind: "slider" }> }) {
 // ---------- 27 Loader ----------
 function Loader(p: ViewProps) {
   const [pct, setPct] = useState(0);
-  const [asked, setAsked] = useState(false);
-  const [popup, setPopup] = useState(false);
   useEffect(() => {
-    if (popup) return;
     if (pct >= 100) { const id = setTimeout(p.next, 600); return () => clearTimeout(id); }
-    if (pct >= 55 && !asked) { setPopup(true); return; }
     const id = setTimeout(() => setPct((x) => Math.min(100, x + 1)), 40);
     return () => clearTimeout(id);
-  }, [pct, popup, asked]); // eslint-disable-line react-hooks/exhaustive-deps
-  const choose = (v: "yes" | "no") => { p.answer("wants_photos", v); setAsked(true); setPopup(false); };
+  }, [pct]); // eslint-disable-line react-hooks/exhaustive-deps
   const step = (label: string, from: number, to: number) => {
     const done = pct >= to;
     const local = Math.max(0, Math.min(100, Math.round(((pct - from) / (to - from)) * 100)));
@@ -416,34 +420,57 @@ function Loader(p: ViewProps) {
         <b>Companionship is the #1 way people use AI in 2025.</b>
         <span className="source">Source: Harvard Business Review, 2025</span>
       </div>
-      {popup && (
-        <div className="modal-bg">
-          <div className="modal">
-            <p className="title small">{p.t("Would you like {her} to send you photos?")}</p>
-            <div className="row2">
-              <button className="btn ghost" onClick={() => choose("no")}>No</button>
-              <button className="btn" onClick={() => choose("yes")}>Yes</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// ---------- 28 Email ----------
+// ---------- 29 Email ----------
+const EMAIL_DOMAINS = ["gmail.com", "yahoo.com", "icloud.com", "outlook.com", "hotmail.com", "aol.com"];
+
 function Email(p: ViewProps) {
-  const valid = EMAIL_RE.test(p.email.trim());
-  const go = () => { if (!valid) return; track("email_submitted", { valid: true }); p.next(); };
+  const [focus, setFocus] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const value = p.email.trim();
+  const valid = EMAIL_RE.test(value);
+  const [local, typedDomain = ""] = value.split("@");
+  const suggestions = local && !local.includes(" ")
+    ? EMAIL_DOMAINS.filter((d) => d.startsWith(typedDomain.toLowerCase()))
+        .map((d) => `${local}@${d}`)
+        .filter((x) => x !== value)
+        .slice(0, 5)
+    : [];
+  const go = () => {
+    if (!valid || !consent) return;
+    track("email_submitted", { valid: true, marketing_consent: true });
+    p.next();
+  };
   return (
     <div className="col">
       <img className="avatar" src={`/img/${p.eth}/portrait/profile.jpg`} alt="" />
       <QHead q={p.s.q} sub={p.s.sub} t={p.t} />
-      <input className="input" type="email" inputMode="email" autoComplete="email" placeholder="you@email.com"
-        value={p.email} onChange={(e) => p.setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} />
+      <div className="email-wrap">
+        <input className="input" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false}
+          placeholder="you@email.com" value={p.email}
+          onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 150)}
+          onChange={(e) => p.setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} />
+        {focus && suggestions.length > 0 && (
+          <div className="suggest">
+            {suggestions.map((x) => (
+              <button key={x} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => p.setEmail(x)}>{x}</button>
+            ))}
+          </div>
+        )}
+      </div>
       <p className="fine left">🔒 Your email stays private. No spam and nothing explicit in your inbox.</p>
-      <p className="fine left">Demo: the email is not stored or sent anywhere.</p>
-      <Bottom><button className="btn" disabled={!valid} onClick={go}>Continue</button></Bottom>
+      <label className="consent">
+        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+        <span className={`box ${consent ? "on" : ""}`}>{consent ? "✓" : ""}</span>
+        <span>
+          I agree to receive emails from Get Honey about my account, new features and special offers. I can unsubscribe at any time. See the{" "}
+          <a className="legal" href="https://get-honey.today/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+        </span>
+      </label>
+      <Bottom><button className="btn" disabled={!valid || !consent} onClick={go}>Continue</button></Bottom>
     </div>
   );
 }
@@ -470,7 +497,7 @@ function quote(a: Answers) {
   return q.length > 80 ? q.slice(0, 79) + "…" : q;
 }
 
-// ---------- 29 Profile ----------
+// ---------- 28 Profile ----------
 function Profile(p: ViewProps) {
   const { t, a } = p;
   const q = quote(a);
@@ -493,22 +520,58 @@ function Profile(p: ViewProps) {
         {knows(a).map((l) => <div key={l} className="kline">✓ {l}</div>)}
         {q && <div className="kline quote">You said: “{q}”</div>}
       </div>
-      <Bottom><button className="btn" onClick={p.next}>See my plan</button></Bottom>
+      <Bottom><button className="btn" onClick={p.next}>{t("Start chatting with {her}")}</button></Bottom>
     </div>
   );
 }
 
 // ---------- 30 Paywall ----------
+const OFFER_SECONDS = 10 * 60;
+let offerStartedAt = 0; // survives back/forward inside one visit
+
+function useCountdown() {
+  if (!offerStartedAt) offerStartedAt = Date.now();
+  const calc = () => Math.max(0, OFFER_SECONDS - Math.floor((Date.now() - offerStartedAt) / 1000));
+  const [left, setLeft] = useState(calc);
+  useEffect(() => {
+    const id = setInterval(() => setLeft(calc()), 1000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const mm = String(Math.floor(left / 60)).padStart(2, "0");
+  const ss = String(left % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+const SAMPLE_REVIEWS = [
+  { who: "Sample review · 34", text: "I work late and nobody asks how my day went. Now someone does, every night. Sounds silly, but it helps." },
+  { who: "Sample review · 41", text: "Started as a joke, stayed because she actually listens. And yes, it gets fun later in the evening." },
+  { who: "Sample review · 29", text: "Way better than scrolling until 2 am. I fall asleep in a much better mood." },
+];
+
 function Paywall(p: ViewProps) {
   const { t, a } = p;
+  const timer = useCountdown();
+  const [gift, setGift] = useState(false);
+  const plansRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const id = setTimeout(() => setGift(true), 400);
+    return () => clearTimeout(id);
+  }, []);
+  const claim = () => {
+    setGift(false);
+    track("discount_popup_claimed");
+  };
+  const toPlans = () => plansRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
   const wants = ((a.wants as string[]) || []).map((w) => WANT_PHRASE[w]).filter(Boolean).slice(0, 2);
   const motive = wants.length === 2
     ? `You said you want ${wants[0]} and ${wants[1]}. ${p.her} is both.`
     : wants.length === 1 ? `You said you want ${wants[0]}. ${p.her} is exactly that.` : "";
+  const scenario = SCENARIO_LABEL[a.scenario as string];
   const tags = [
     WORK_TAG[a.work_type as string],
     ["almost_every", "few_week"].includes(a.lonely_freq as string) ? "Lonely evenings" : "",
-    SCENARIO_LABEL[a.scenario as string],
+    scenario,
   ].filter(Boolean);
   const opener = a.work_type === "shifts" ? "Long shift?" : a.work_type === "remote" ? "Stuck at home all day?" : "Long day?";
   const msg = `Hey ${p.you || "you"}. ${opener} Come here, tell me everything…`;
@@ -517,9 +580,25 @@ function Paywall(p: ViewProps) {
     const pl = PLANS.find((x) => x.id === id)!;
     track("plan_selected", { plan: id, price: pl.price });
   };
+  const benefits = [
+    ["💬", t("Flirty chats with {her}, any time of day")],
+    ["🧠", "She remembers your chats and what you like"],
+    ["📸", "Spicy photos and videos, just for you"],
+    ["🎧", "Voice messages in her voice"],
+    ["🎭", scenario ? `Role-play, starting with “${scenario}”` : "Role-play scenarios"],
+    ["🥰", "Sweet when you need it, flirty when you want it"],
+    ["✨", "Her look and personality, exactly as you chose"],
+  ];
+  const after = ["She asks how your day went", "You unwind together", "You fall asleep feeling wanted"];
   const cta = <button className="btn" onClick={p.next}>{t("Reply to {her}")}</button>;
+
   return (
     <div className="col pw">
+      <div className="timer">
+        <div><small>Your discount is reserved for</small><b>{timer}</b></div>
+        <button onClick={toPlans}>Get discount</button>
+      </div>
+
       <div className="portrait wide"><img src={`/img/${p.eth}/portrait/paywall.jpg`} alt="" /></div>
       <h1 className="title">{t("{her} is waiting to hear about your day")}</h1>
       {motive && <p className="sub">{motive}</p>}
@@ -532,19 +611,38 @@ function Paywall(p: ViewProps) {
       </div>
 
       <div className="card">
-        <div className="card-title">What you get</div>
-        {[t("Chat with {her} any time"), "Sweet when you need it, flirty when you want it", "Spicy photos, voice and role-play, just for you", "Her look and personality, exactly as you chose"].map((x) => (
-          <div key={x} className="kline">✓ {x}</div>
-        ))}
+        <div className="card-title">Your evenings</div>
+        <div className="compare ba">
+          <div>
+            <div className="colhead">BEFORE</div>
+            {pains(a).map((x) => <div key={x.label} className="citem dim">{x.emoji} {x.label}</div>)}
+          </div>
+          <div>
+            <div className="colhead accent">{t("WITH {her}").toUpperCase()}</div>
+            {after.map((x) => <div key={x} className="citem">❤️ {x}</div>)}
+          </div>
+        </div>
       </div>
 
+      <div className="card">
+        <div className="card-title">What you get</div>
+        {benefits.map(([e, x]) => <div key={x} className="kline"><span className="bi">{e}</span>{x}</div>)}
+      </div>
+
+      <div className="offer-head" ref={plansRef}>
+        Your personal discount: <span className="pct">up to -60%</span>
+      </div>
       <div className="plans">
         {PLANS.map((pl) => (
           <button key={pl.id} className={`plan ${p.plan === pl.id ? "on" : ""}`} onClick={() => pick(pl.id)}>
             {pl.best && <span className="best">BEST VALUE</span>}
             <span className="radio">{p.plan === pl.id ? "●" : ""}</span>
             <span className="plan-main"><b>{pl.label}</b><small>then {pl.renew}</small></span>
-            <span className="plan-price"><b>${pl.price}</b><small>${(pl.price / pl.days).toFixed(2)} / day</small></span>
+            <span className="plan-price">
+              <s>${pl.old}</s>
+              <b>${pl.price}</b>
+              <small>${(pl.price / pl.days).toFixed(2)} / day</small>
+            </span>
           </button>
         ))}
       </div>
@@ -556,14 +654,24 @@ function Paywall(p: ViewProps) {
         <span className="source">Source: Wheatley Institute, Counterfeit Connections, 2025</span>
       </div>
 
-      <div className="card placeholder">
-        <div className="card-title">Reviews</div>
-        <p className="fine left">Placeholder: real Get Honey reviews about evenings and support go here. We do not show invented reviews.</p>
+      <div className="reviews">
+        <div className="card-title">What men say about their evenings</div>
+        {SAMPLE_REVIEWS.map((r) => (
+          <div key={r.text} className="card review">
+            <div className="stars">★★★★★</div>
+            <p>{r.text}</p>
+            <small>{r.who}</small>
+          </div>
+        ))}
+        <p className="fine">Sample reviews for the demo. Real customer reviews go here.</p>
       </div>
 
-      <div className="card mb">
-        <div className="card-title">3-day money-back guarantee</div>
-        <p className="fine left">Not the right fit? Contact support within 3 days for a full refund.</p>
+      <div className="card guarantee">
+        <div className="seal">30</div>
+        <div>
+          <div className="card-title">30-day money-back guarantee</div>
+          <p className="fine left">Not the right fit? Contact support within 30 days and get a full refund.</p>
+        </div>
       </div>
 
       <div className="faq">
@@ -572,7 +680,20 @@ function Paywall(p: ViewProps) {
         <details><summary>Is {p.her} a real person?</summary><p>No. {p.her} is an AI companion, created from your answers. She is available any time you are.</p></details>
       </div>
       {cta}
-      <p className="fine">Your plan renews automatically at the price shown after the first period. Demo: no payment is taken.</p>
+      <p className="fine">The discounted price applies to the first period. Then your plan renews automatically at the regular price shown above.</p>
+
+      {gift && (
+        <div className="modal-bg">
+          <div className="modal gift">
+            <div className="confetti" aria-hidden="true">{Array.from({ length: 18 }).map((_, i) => <i key={i} />)}</div>
+            <div className="gift-emoji">🎁</div>
+            <p className="woo">Woo-hoo!</p>
+            <p className="sub">{t("We'd like to give you a personal first-time introductory discount, so you can meet {her} tonight")}</p>
+            <div className="big-off">up to <b>60%</b> OFF</div>
+            <button className="btn" onClick={claim}>Claim my discount</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
