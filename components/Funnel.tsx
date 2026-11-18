@@ -683,7 +683,7 @@ function Paywall(p: ViewProps) {
       </div>
 
       <div className="portrait wide"><img src={`/img/${p.eth}/portrait/paywall.jpg`} alt="" /></div>
-      <h1 className="title">{t("{her} is waiting to hear about your day")}</h1>
+      <h1 className="title">{(p.you ? `${p.you}, ` : "") + t("{her} is waiting to hear about your day")}</h1>
       {motive && <p className="sub">{motive}</p>}
       {!!tags.length && <div className="tags">{tags.map((x) => <span key={x} className="tag">{x}</span>)}</div>}
 
@@ -703,7 +703,7 @@ function Paywall(p: ViewProps) {
         {benefits.map(([e, x]) => <div key={x} className="kline"><span className="bi">{e}</span>{x}</div>)}
       </div>
 
-      <h2 className="offer-title" ref={plansRef}>{t("{her} is waiting to send you her hot photos")}</h2>
+      <h2 className="offer-title" ref={plansRef}>{(p.you ? `${p.you}, ` : "") + t("{her} is waiting to send you her hot photos")}</h2>
       {expired
         ? <div className="offer-head">Your personal discount has expired</div>
         : <div className="offer-head">Your personal discount: <span className="pct">up to -60%</span></div>}
