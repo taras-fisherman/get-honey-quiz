@@ -243,9 +243,9 @@ const QUESTION_KINDS = new Set(["photo", "single", "multi", "herName", "youName"
 export const QUESTION_IDS = SCREENS.filter((s) => QUESTION_KINDS.has(s.kind)).map((s) => s.id);
 
 export const PLANS = [
-  { id: "1m", label: "1 month", price: 24.99, old: 49.99, renew: "$49.99 / month", days: 30 },
-  { id: "3m", label: "3 months", price: 49.99, old: 109.99, renew: "$109.99 / 3 months", days: 90 },
-  { id: "12m", label: "12 months", price: 119.99, old: 299.99, renew: "$299.99 / year", days: 365, best: true },
+  { id: "1m", label: "1 month", price: 24.99, old: 49.99, renew: "$49.99 / month", days: 30, popular: false },
+  { id: "3m", label: "3 months", price: 49.99, old: 109.99, renew: "$109.99 / 3 months", days: 90, popular: true },
+  { id: "12m", label: "12 months", price: 119.99, old: 299.99, renew: "$299.99 / year", days: 365, best: true, popular: false },
 ];
 
 // ---------- personalization ----------

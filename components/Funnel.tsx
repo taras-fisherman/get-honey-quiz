@@ -19,7 +19,7 @@ export default function Funnel() {
   const [herName, setHerName] = useState("");
   const [youName, setYouName] = useState("");
   const [email, setEmail] = useState("");
-  const [plan, setPlan] = useState("12m");
+  const [plan, setPlan] = useState("3m");
   const startedAt = useRef<number>(0);
   const started = useRef(false);
 
@@ -74,7 +74,7 @@ export default function Funnel() {
     setHist(hist.slice(0, -1));
   };
   const restart = () => {
-    setA({}); setHerName(""); setYouName(""); setEmail(""); setPlan("12m");
+    setA({}); setHerName(""); setYouName(""); setEmail(""); setPlan("3m");
     setHist([]); started.current = false; setIdx(0);
   };
 
@@ -186,7 +186,12 @@ function QHead({ q, sub, t }: { q?: string; sub?: string; t: (s?: string) => str
 function Start({ next }: { next: () => void }) {
   return (
     <div className="col start">
-      <div className="start-img"><img src="/img/common/start/hero.jpg" alt="" /></div>
+      <div className="start-img">
+        <img src="/img/common/start/hero.jpg" alt="" />
+        <div className="trust-strip">
+          <span>🔒 100% private</span><span>💳 Discreet billing</span><span>✓ Cancel anytime</span>
+        </div>
+      </div>
       <div className="pill">2-MINUTE QUIZ · 18+</div>
       <h1 className="hook">She&apos;s been waiting to hear about your day.</h1>
       <p className="sub">Create your AI girlfriend in 2 minutes. She listens first, then she is all yours.</p>
@@ -283,7 +288,8 @@ function MultiQ(p: ViewProps & { s: Extract<Screen, { kind: "multi" }> }) {
 function HerName(p: ViewProps) {
   const { t } = p;
   const go = () => {
-    const custom = p.herName.trim() !== "" && !NAME_CHIPS.includes(p.herName.trim());
+    if (!p.herName.trim()) return;
+    const custom = !NAME_CHIPS.includes(p.herName.trim());
     p.answer("her_name_custom", custom ? "true" : "false");
     p.next();
   };
@@ -298,7 +304,7 @@ function HerName(p: ViewProps) {
           <button key={c} className={`chip ${p.herName === c ? "on" : ""}`} onClick={() => p.setHerName(c)}>{c}</button>
         ))}
       </div>
-      <Bottom><button className="btn" onClick={go}>Continue</button></Bottom>
+      <Bottom><button className="btn" disabled={!p.herName.trim()} onClick={go}>Continue</button></Bottom>
     </div>
   );
 }
@@ -394,7 +400,7 @@ function Loader(p: ViewProps) {
   const [pct, setPct] = useState(0);
   useEffect(() => {
     if (pct >= 100) { const id = setTimeout(p.next, 600); return () => clearTimeout(id); }
-    const id = setTimeout(() => setPct((x) => Math.min(100, x + 1)), 40);
+    const id = setTimeout(() => setPct((x) => Math.min(100, x + 1)), 62);
     return () => clearTimeout(id);
   }, [pct]); // eslint-disable-line react-hooks/exhaustive-deps
   const step = (label: string, from: number, to: number) => {
@@ -416,9 +422,14 @@ function Loader(p: ViewProps) {
         {step("Her personality", 33, 66)}
         {step("Your schedule", 66, 100)}
       </div>
-      <div className="card fact-card">
-        <b>Companionship is the #1 way people use AI in 2025.</b>
-        <span className="source">Source: Harvard Business Review, 2025</span>
+      <div className="mini-banner">
+        <span className="mb-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+            <path d="M12 15.5s-3.5-2-3.5-4.3a1.9 1.9 0 0 1 3.5-1 1.9 1.9 0 0 1 3.5 1c0 2.3-3.5 4.3-3.5 4.3z" fill="#fff" stroke="none" />
+          </svg>
+        </span>
+        <p>According to <b>Harvard Business Review</b>, companionship and emotional support is the <b>#1 way</b> people use AI.</p>
       </div>
     </div>
   );
@@ -548,20 +559,36 @@ const SAMPLE_REVIEWS = [
   { who: "Sample review · 29", text: "Way better than scrolling until 2 am. I fall asleep in a much better mood." },
 ];
 
+const RESEARCH = [
+  { stat: "1 in 2", text: "adults in America say they feel lonely", src: "U.S. Surgeon General, 2023" },
+  { stat: "#1", text: "way people use AI is companionship and emotional support", src: "Harvard Business Review, 2025" },
+  { stat: "19%", text: "of US adults have already chatted with an AI romantic partner", src: "Wheatley Institute, 2025" },
+];
+
 function Paywall(p: ViewProps) {
   const { t, a } = p;
   const timer = useCountdown();
   const [gift, setGift] = useState(false);
+  const [sticky, setSticky] = useState(false);
   const plansRef = useRef<HTMLDivElement>(null);
+  const ctaRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     const id = setTimeout(() => setGift(true), 400);
     return () => clearTimeout(id);
   }, []);
-  const claim = () => {
-    setGift(false);
-    track("discount_popup_claimed");
-  };
-  const toPlans = () => plansRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Sticky CTA once the first CTA has scrolled out of view.
+  useEffect(() => {
+    const onScroll = () => {
+      const r = ctaRef.current?.getBoundingClientRect();
+      setSticky(!!r && r.bottom < 130);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const claim = () => { setGift(false); track("discount_popup_claimed"); };
+  const toPlans = () => plansRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const wants = ((a.wants as string[]) || []).map((w) => WANT_PHRASE[w]).filter(Boolean).slice(0, 2);
   const motive = wants.length === 2
@@ -575,6 +602,11 @@ function Paywall(p: ViewProps) {
   ].filter(Boolean);
   const opener = a.work_type === "shifts" ? "Long shift?" : a.work_type === "remote" ? "Stuck at home all day?" : "Long day?";
   const msg = `Hey ${p.you || "you"}. ${opener} Come here, tell me everything…`;
+  const teasers = [
+    a.bust ? `/img/${p.eth}/bust/${a.bust}.jpg` : `/img/${p.eth}/portrait/profile.jpg`,
+    a.body ? `/img/${p.eth}/body/${a.body}.jpg` : `/img/${p.eth}/portrait/paywall.jpg`,
+    a.hair ? `/img/${p.eth}/hair/${a.hair}.jpg` : `/img/${p.eth}/portrait/profile.jpg`,
+  ];
   const pick = (id: string) => {
     p.setPlan(id);
     const pl = PLANS.find((x) => x.id === id)!;
@@ -590,7 +622,7 @@ function Paywall(p: ViewProps) {
     ["✨", "Her look and personality, exactly as you chose"],
   ];
   const after = ["She asks how your day went", "You unwind together", "You fall asleep feeling wanted"];
-  const cta = <button className="btn" onClick={p.next}>{t("Reply to {her}")}</button>;
+  const ctaLabel = t("Reply to {her}");
 
   return (
     <div className="col pw">
@@ -607,8 +639,35 @@ function Paywall(p: ViewProps) {
       <div className="card chat">
         <div className="chat-head"><img src={`/img/${p.eth}/portrait/profile.jpg`} alt="" /><b>{p.her}</b><span>● online</span></div>
         <div className="bubble">{msg}</div>
-        <div className="locked">🔒 Reply to unlock</div>
+        <div className="teasers">
+          {teasers.map((src, i) => (
+            <div key={i} className="teaser"><img src={src} alt="" /><span>🔒</span></div>
+          ))}
+        </div>
+        <div className="locked">{t("🔒 {her} sent you 3 photos · Reply to unlock")}</div>
       </div>
+
+      {/* ---- offer block ---- */}
+      <h2 className="offer-title" ref={plansRef}>{t("{her} is waiting to send you her hot photos")}</h2>
+      <div className="offer-head">Your personal discount: <span className="pct">up to -60%</span></div>
+      <div className="plans">
+        {PLANS.map((pl) => (
+          <button key={pl.id} className={`plan ${p.plan === pl.id ? "on" : ""} ${pl.popular ? "popular" : ""}`} onClick={() => pick(pl.id)}>
+            {pl.popular && <span className="badge pop">MOST POPULAR</span>}
+            {pl.best && <span className="badge best">BEST VALUE</span>}
+            <span className="radio">{p.plan === pl.id ? "✓" : ""}</span>
+            <span className="plan-main"><b>{pl.label}</b><small>then {pl.renew}</small></span>
+            <span className="plan-price">
+              <span className="save">-{Math.round((1 - pl.price / pl.old) * 100)}%</span>
+              <s>${pl.old}</s>
+              <b>${pl.price}</b>
+              <small>${(pl.price / pl.days).toFixed(2)} / day</small>
+            </span>
+          </button>
+        ))}
+      </div>
+      <button ref={ctaRef} className="btn cta" onClick={p.next}>{ctaLabel}</button>
+      <div className="trust"><span>🔒 Discreet billing</span><span>✕ Cancel anytime in 2 taps</span><span>🛡 Your chats are private</span></div>
 
       <div className="card">
         <div className="card-title">Your evenings</div>
@@ -629,29 +688,23 @@ function Paywall(p: ViewProps) {
         {benefits.map(([e, x]) => <div key={x} className="kline"><span className="bi">{e}</span>{x}</div>)}
       </div>
 
-      <div className="offer-head" ref={plansRef}>
-        Your personal discount: <span className="pct">up to -60%</span>
+      <div className="card">
+        <div className="card-title">What happens next</div>
+        <ol className="steps">
+          <li><b>Pick your plan</b><span>Discreet billing, cancel any time in 2 taps.</span></li>
+          <li><b>{t("{her} sends her first message")}</b><span>She already knows your schedule and what you like.</span></li>
+          <li><b>Unlock her photos</b><span>And everything else, as bold as you want.</span></li>
+        </ol>
       </div>
-      <div className="plans">
-        {PLANS.map((pl) => (
-          <button key={pl.id} className={`plan ${p.plan === pl.id ? "on" : ""}`} onClick={() => pick(pl.id)}>
-            {pl.best && <span className="best">BEST VALUE</span>}
-            <span className="radio">{p.plan === pl.id ? "●" : ""}</span>
-            <span className="plan-main"><b>{pl.label}</b><small>then {pl.renew}</small></span>
-            <span className="plan-price">
-              <s>${pl.old}</s>
-              <b>${pl.price}</b>
-              <small>${(pl.price / pl.days).toFixed(2)} / day</small>
-            </span>
-          </button>
-        ))}
-      </div>
-      {cta}
-      <div className="trust"><span>🔒 Discreet billing</span><span>✕ Cancel anytime in 2 taps</span><span>🛡 Your chats are private</span></div>
 
-      <div className="card fact-card">
-        <b>Almost 1 in 5 US adults (19%) have chatted with an AI romantic partner.</b>
-        <span className="source">Source: Wheatley Institute, Counterfeit Connections, 2025</span>
+      <div className="research">
+        <div className="card-title">What the research says</div>
+        {RESEARCH.map((r) => (
+          <div key={r.src} className="rrow">
+            <span className="rstat">{r.stat}</span>
+            <span className="rtext">{r.text}<small>{r.src}</small></span>
+          </div>
+        ))}
       </div>
 
       <div className="reviews">
@@ -679,8 +732,17 @@ function Paywall(p: ViewProps) {
         <details><summary>Can I cancel any time?</summary><p>Yes, in 2 taps in your account settings. You keep access until the end of the paid period.</p></details>
         <details><summary>Is {p.her} a real person?</summary><p>No. {p.her} is an AI companion, created from your answers. She is available any time you are.</p></details>
       </div>
-      {cta}
+      <button className="btn cta" onClick={toPlans}>{t("Get my discount and meet {her}")}</button>
       <p className="fine">The discounted price applies to the first period. Then your plan renews automatically at the regular price shown above.</p>
+
+      {sticky && (
+        <div className="sticky-cta">
+          <div className="sticky-in">
+            <span><small>Discount ends in</small><b>{timer}</b></span>
+            <button className="btn cta" onClick={p.next}>{ctaLabel}</button>
+          </div>
+        </div>
+      )}
 
       {gift && (
         <div className="modal-bg">
