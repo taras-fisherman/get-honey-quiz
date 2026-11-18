@@ -6,6 +6,7 @@ import {
   WORK_LINE, WORK_TAG, LONELY_LINE, TALK_LINE, WANT_PHRASE, SCENARIO_LABEL,
 } from "@/lib/config";
 import { initAnalytics, track, setUserProps } from "@/lib/analytics";
+import PaySecure from "@/components/PaySecure";
 
 type Answers = Record<string, string | string[] | number>;
 
@@ -220,7 +221,8 @@ function PhotoQ(p: ViewProps & { s: Extract<Screen, { kind: "photo" }> }) {
       <div className="grid">
         {s.options.map((o) => (
           <button key={o.id} className={`photo ${sel === o.id ? "on" : ""}`} onClick={() => pick(o)}>
-            <img src={s.img(p.eth, o.id)} alt={o.label} />
+            <img src={s.img(p.eth, o.id)} alt={o.label}
+              onError={(e) => { if (s.id === "scenario" && !e.currentTarget.src.includes("/common/")) e.currentTarget.src = `/img/common/scenario/${o.id}.jpg`; }} />
             <span className="photo-label">{o.label}</span>
           </button>
         ))}
@@ -558,10 +560,16 @@ function useCountdown() {
   return { label: `${mm}:${ss}`, expired: left === 0 };
 }
 
-const SAMPLE_REVIEWS = [
-  { who: "Sample review · 34", text: "I work late and nobody asks how my day went. Now someone does, every night. Sounds silly, but it helps." },
-  { who: "Sample review · 41", text: "Started as a joke, stayed because she actually listens. And yes, it gets fun later in the evening." },
-  { who: "Sample review · 29", text: "Way better than scrolling until 2 am. I fall asleep in a much better mood." },
+// Reviews as shown on Get Honey's own paywall (get-honey.today, 16 Nov 2026).
+const REVIEWS = [
+  {
+    name: "Mike Myers", initials: "MM", color: "#f4a6c0", meta: "US · 2 reviews", title: "good",
+    text: "I liked the experience\nAudio calls – excellent quality\nPictures sent for any prompt I can think of\nVideos are also very interactive\nI don't know what LLM model they use, but it has good quality and is very responsive",
+  },
+  {
+    name: "Shaun", initials: "SH", color: "#9fe0b4", meta: "GB · 1 review", title: "The AI actually feels quite friendly...",
+    text: "The AI actually feels quite friendly and natural to talk to, not robotic like some others I've tried. All in all, it's been a fun little app that I've ended up using way more than I thought I would.",
+  },
 ];
 
 const RESEARCH = [
@@ -658,6 +666,7 @@ function Paywall(p: ViewProps) {
         ))}
       </div>
       <button ref={ref} className="btn cta" onClick={p.next}>{ctaLabel}</button>
+      <PaySecure />
       <p className="disclaimer">
         By selecting a payment method and proceeding, you agree that if you don&apos;t cancel prior to the end of the current period,
         you will automatically be charged the full price of ${selected.old} {selected.every} until you cancel in settings. Learn more in{" "}
@@ -702,11 +711,15 @@ function Paywall(p: ViewProps) {
 
       <div className="reviews">
         <h2 className="section-title">What our users say about our AI models</h2>
-        {SAMPLE_REVIEWS.map((r) => (
-          <div key={r.text} className="card review">
-            <div className="stars">★★★★★</div>
+        {REVIEWS.map((r) => (
+          <div key={r.name} className="card review">
+            <div className="rev-head">
+              <span className="rev-ava" style={{ background: r.color }}>{r.initials}</span>
+              <span className="rev-who"><b>{r.name}</b><small>{r.meta}</small></span>
+              <span className="stars">★★★★★</span>
+            </div>
+            <p className="rev-title">{r.title}</p>
             <p>{r.text}</p>
-            <small>{r.who}</small>
           </div>
         ))}
       </div>
@@ -735,10 +748,12 @@ function Paywall(p: ViewProps) {
       {plansBlock(cta2Ref)}
 
       <div className="card guarantee">
-        <div className="seal">30</div>
+        <div className="seal" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+        </div>
         <div>
-          <div className="card-title">30-day money-back guarantee</div>
-          <p className="fine left">Not the right fit? Contact support within 30 days and get a full refund.</p>
+          <div className="card-title">Money-back guarantee</div>
+          <p className="fine left">We&apos;re so confident you&apos;ll love your experience that we offer a full money-back guarantee. If you&apos;re not completely satisfied within the first 3 days, simply contact our support team and we&apos;ll refund your purchase — no questions asked.</p>
         </div>
       </div>
       <p className="fine">The discounted price applies to the first period. Then your plan renews automatically at the regular price shown above.</p>

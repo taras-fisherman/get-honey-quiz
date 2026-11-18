@@ -228,7 +228,7 @@ export const SCREENS: Screen[] = [
       { id: "office-crush", label: "Office crush" },
       { id: "late-call", label: "Late call" },
     ],
-    img: (_e, o) => `/img/common/scenario/${o}.jpg`,
+    img: (e, o) => (e === "caucasian" ? `/img/common/scenario/${o}.jpg` : `/img/${e}/scenario/${o}.jpg`),
   },
   { n: 27, id: "loader", block: "result", kind: "loader" },
   { n: 28, id: "profile", block: "result", kind: "profile" },
