@@ -188,9 +188,6 @@ function Start({ next }: { next: () => void }) {
     <div className="col start">
       <div className="start-img">
         <img src="/img/common/start/hero.jpg" alt="" />
-        <div className="trust-strip">
-          <span>🔒 100% private</span><span>💳 Discreet billing</span><span>✓ Cancel anytime</span>
-        </div>
       </div>
       <div className="pill">2-MINUTE QUIZ · 18+</div>
       <h1 className="hook">She&apos;s been waiting to hear about your day.</h1>
@@ -451,8 +448,8 @@ function Email(p: ViewProps) {
         .slice(0, 5)
     : [];
   const go = () => {
-    if (!valid || !consent) return;
-    track("email_submitted", { valid: true, marketing_consent: true });
+    if (!valid) return;
+    track("email_submitted", { valid: true, marketing_consent: consent });
     p.next();
   };
   return (
@@ -477,11 +474,11 @@ function Email(p: ViewProps) {
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         <span className={`box ${consent ? "on" : ""}`}>{consent ? "✓" : ""}</span>
         <span>
-          I agree to receive emails from Get Honey about my account, new features and special offers. I can unsubscribe at any time. See the{" "}
+          I want to receive emails from Get Honey about new features and special offers. I can unsubscribe at any time. See the{" "}
           <a className="legal" href="https://get-honey.today/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
         </span>
       </label>
-      <Bottom><button className="btn" disabled={!valid || !consent} onClick={go}>Continue</button></Bottom>
+      <Bottom><button className="btn" disabled={!valid} onClick={go}>Continue</button></Bottom>
     </div>
   );
 }
@@ -572,6 +569,7 @@ function Paywall(p: ViewProps) {
   const [sticky, setSticky] = useState(false);
   const plansRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLButtonElement>(null);
+  const cta2Ref = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const id = setTimeout(() => setGift(true), 400);
@@ -581,7 +579,9 @@ function Paywall(p: ViewProps) {
   useEffect(() => {
     const onScroll = () => {
       const r = ctaRef.current?.getBoundingClientRect();
-      setSticky(!!r && r.bottom < 130);
+      const r2 = cta2Ref.current?.getBoundingClientRect();
+      const secondInView = !!r2 && r2.top < window.innerHeight && r2.bottom > 0;
+      setSticky(!!r && r.bottom < 130 && !secondInView);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -621,8 +621,29 @@ function Paywall(p: ViewProps) {
     ["🥰", "Sweet when you need it, flirty when you want it"],
     ["✨", "Her look and personality, exactly as you chose"],
   ];
-  const after = ["She asks how your day went", "You unwind together", "You fall asleep feeling wanted"];
   const ctaLabel = t("Reply to {her}");
+  const plansBlock = (ref: React.RefObject<HTMLButtonElement | null>) => (
+    <>
+      <div className="plans">
+        {PLANS.map((pl) => (
+          <button key={pl.id} className={`plan ${p.plan === pl.id ? "on" : ""} ${pl.popular ? "popular" : ""}`} onClick={() => pick(pl.id)}>
+            {pl.popular && <span className="badge pop">MOST POPULAR</span>}
+            {pl.best && <span className="badge best">BEST VALUE</span>}
+            <span className="radio">{p.plan === pl.id ? "✓" : ""}</span>
+            <span className="plan-main"><b>{pl.label}</b><small>then {pl.renew}</small></span>
+            <span className="plan-price">
+              <span className="save">-{Math.round((1 - pl.price / pl.old) * 100)}%</span>
+              <s>${pl.old}</s>
+              <b>${pl.price}</b>
+              <small>${(pl.price / pl.days).toFixed(2)} / day</small>
+            </span>
+          </button>
+        ))}
+      </div>
+      <button ref={ref} className="btn cta" onClick={p.next}>{ctaLabel}</button>
+      <div className="trust"><span>🔒 Discreet billing</span><span>✕ Cancel anytime in 2 taps</span><span>🛡 Your chats are private</span></div>
+    </>
+  );
 
   return (
     <div className="col pw">
@@ -647,65 +668,14 @@ function Paywall(p: ViewProps) {
         <div className="locked">{t("🔒 {her} sent you 3 photos · Reply to unlock")}</div>
       </div>
 
-      {/* ---- offer block ---- */}
-      <h2 className="offer-title" ref={plansRef}>{t("{her} is waiting to send you her hot photos")}</h2>
-      <div className="offer-head">Your personal discount: <span className="pct">up to -60%</span></div>
-      <div className="plans">
-        {PLANS.map((pl) => (
-          <button key={pl.id} className={`plan ${p.plan === pl.id ? "on" : ""} ${pl.popular ? "popular" : ""}`} onClick={() => pick(pl.id)}>
-            {pl.popular && <span className="badge pop">MOST POPULAR</span>}
-            {pl.best && <span className="badge best">BEST VALUE</span>}
-            <span className="radio">{p.plan === pl.id ? "✓" : ""}</span>
-            <span className="plan-main"><b>{pl.label}</b><small>then {pl.renew}</small></span>
-            <span className="plan-price">
-              <span className="save">-{Math.round((1 - pl.price / pl.old) * 100)}%</span>
-              <s>${pl.old}</s>
-              <b>${pl.price}</b>
-              <small>${(pl.price / pl.days).toFixed(2)} / day</small>
-            </span>
-          </button>
-        ))}
-      </div>
-      <button ref={ctaRef} className="btn cta" onClick={p.next}>{ctaLabel}</button>
-      <div className="trust"><span>🔒 Discreet billing</span><span>✕ Cancel anytime in 2 taps</span><span>🛡 Your chats are private</span></div>
-
-      <div className="card">
-        <div className="card-title">Your evenings</div>
-        <div className="compare ba">
-          <div>
-            <div className="colhead">BEFORE</div>
-            {pains(a).map((x) => <div key={x.label} className="citem dim">{x.emoji} {x.label}</div>)}
-          </div>
-          <div>
-            <div className="colhead accent">{t("WITH {her}").toUpperCase()}</div>
-            {after.map((x) => <div key={x} className="citem">❤️ {x}</div>)}
-          </div>
-        </div>
-      </div>
-
       <div className="card">
         <div className="card-title">What you get</div>
         {benefits.map(([e, x]) => <div key={x} className="kline"><span className="bi">{e}</span>{x}</div>)}
       </div>
 
-      <div className="card">
-        <div className="card-title">What happens next</div>
-        <ol className="steps">
-          <li><b>Pick your plan</b><span>Discreet billing, cancel any time in 2 taps.</span></li>
-          <li><b>{t("{her} sends her first message")}</b><span>She already knows your schedule and what you like.</span></li>
-          <li><b>Unlock her photos</b><span>And everything else, as bold as you want.</span></li>
-        </ol>
-      </div>
-
-      <div className="research">
-        <div className="card-title">What the research says</div>
-        {RESEARCH.map((r) => (
-          <div key={r.src} className="rrow">
-            <span className="rstat">{r.stat}</span>
-            <span className="rtext">{r.text}<small>{r.src}</small></span>
-          </div>
-        ))}
-      </div>
+      <h2 className="offer-title" ref={plansRef}>{t("{her} is waiting to send you her hot photos")}</h2>
+      <div className="offer-head">Your personal discount: <span className="pct">up to -60%</span></div>
+      {plansBlock(ctaRef)}
 
       <div className="reviews">
         <div className="card-title">What men say about their evenings</div>
@@ -719,12 +689,14 @@ function Paywall(p: ViewProps) {
         <p className="fine">Sample reviews for the demo. Real customer reviews go here.</p>
       </div>
 
-      <div className="card guarantee">
-        <div className="seal">30</div>
-        <div>
-          <div className="card-title">30-day money-back guarantee</div>
-          <p className="fine left">Not the right fit? Contact support within 30 days and get a full refund.</p>
-        </div>
+      <div className="research">
+        <div className="card-title">What the research says</div>
+        {RESEARCH.map((r) => (
+          <div key={r.src} className="rrow">
+            <span className="rstat">{r.stat}</span>
+            <span className="rtext">{r.text}<small>{r.src}</small></span>
+          </div>
+        ))}
       </div>
 
       <div className="faq">
@@ -732,7 +704,17 @@ function Paywall(p: ViewProps) {
         <details><summary>Can I cancel any time?</summary><p>Yes, in 2 taps in your account settings. You keep access until the end of the paid period.</p></details>
         <details><summary>Is {p.her} a real person?</summary><p>No. {p.her} is an AI companion, created from your answers. She is available any time you are.</p></details>
       </div>
-      <button className="btn cta" onClick={toPlans}>{t("Get my discount and meet {her}")}</button>
+
+      <h2 className="offer-title small">{t("Get your discount and meet {her} tonight")}</h2>
+      {plansBlock(cta2Ref)}
+
+      <div className="card guarantee">
+        <div className="seal">30</div>
+        <div>
+          <div className="card-title">30-day money-back guarantee</div>
+          <p className="fine left">Not the right fit? Contact support within 30 days and get a full refund.</p>
+        </div>
+      </div>
       <p className="fine">The discounted price applies to the first period. Then your plan renews automatically at the regular price shown above.</p>
 
       {sticky && (
