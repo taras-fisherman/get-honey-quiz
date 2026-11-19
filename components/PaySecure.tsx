@@ -1,3 +1,4 @@
+import { T } from "@/lib/i18n";
 import { siPaypal, siApplepay, siVisa, siMastercard, siGooglepay, siDiscover, siAmericanexpress } from "simple-icons";
 
 const LOGOS = [siPaypal, siApplepay, siGooglepay, siVisa, siMastercard, siDiscover, siAmericanexpress];
@@ -10,7 +11,7 @@ export default function PaySecure() {
           <path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" />
           <path d="M9 12l2 2 4-4" />
         </svg>
-        Pay safe &amp; secure
+        {T("Pay safe & secure")}
       </div>
       <div className="paysafe-logos">
         {LOGOS.map((l) => (

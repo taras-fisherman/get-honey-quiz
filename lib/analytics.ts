@@ -1,4 +1,5 @@
 import * as amplitude from "@amplitude/analytics-browser";
+import { getLang } from "@/lib/i18n";
 
 let ready = false;
 
@@ -24,7 +25,8 @@ export function initAnalytics() {
   ready = true;
 }
 
-export function track(name: string, props: Record<string, unknown> = {}) {
+export function track(name: string, props0: Record<string, unknown> = {}) {
+  const props = { language: getLang(), ...props0 }; // every event carries the funnel language
   if (ready) amplitude.track(name, props);
   if (!ready || process.env.NODE_ENV !== "production") console.log("[event]", name, props);
 }

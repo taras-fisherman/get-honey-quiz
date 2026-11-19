@@ -7,6 +7,7 @@ import {
 } from "@/lib/config";
 import { initAnalytics, track, setUserProps } from "@/lib/analytics";
 import PaySecure from "@/components/PaySecure";
+import { T, TL, setI18n, detectLang, saveLang, LANGS, Lang } from "@/lib/i18n";
 import { siApple, siVisa, siMastercard, siAmericanexpress } from "simple-icons";
 
 type Answers = Record<string, string | string[] | number>;
@@ -31,6 +32,8 @@ export default function Funnel() {
   const [youName, setYouName] = useState("");
   const [email, setEmail] = useState("");
   const [plan, setPlan] = useState("3m");
+  const [lang, setLangState] = useState<Lang>("en");
+  const langSource = useRef<string>("default");
   const startedAt = useRef<number>(0);
   const started = useRef(false);
 
@@ -38,10 +41,20 @@ export default function Funnel() {
   const her = herName.trim() || "Mia";
   const you = youName.trim();
   const eth = (a.ethnicity as string) || "caucasian";
-  const t = (str?: string) => (str || "").replaceAll("{her}", her).replaceAll("{you}", you);
+  setI18n(lang, { her, you });
+  const t = (str?: string, vars?: Record<string, string | number>) => T(str, vars);
+  const changeLang = (l: Lang) => {
+    if (l === lang) return;
+    track("language_changed", { from: lang, to: l });
+    setLangState(l); saveLang(l); langSource.current = "manual";
+    setUserProps({ language: l });
+  };
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   // ---------- URLs: every screen has its own address (/step-<id>) ----------
   useEffect(() => {
+    const d = detectLang();
+    setLangState(d.lang); langSource.current = d.source;
     setIdx(screenFromPath(window.location.pathname));
     const onPop = () => {
       setIdx(screenFromPath(window.location.pathname));
@@ -74,9 +87,12 @@ export default function Funnel() {
         utm_campaign: p.get("utm_campaign") || undefined,
         utm_content: p.get("utm_content") || undefined,
         variant: p.get("variant") || "evening_support",
+        language: lang,
+        language_source: langSource.current,
       });
+      setUserProps({ language: lang });
     }
-    track("screen_viewed", { screen_id: s.id, screen_index: s.n, block: s.block });
+    track("screen_viewed", { screen_id: s.id, screen_index: s.n, block: s.block, language: lang });
     if (s.kind === "profile") track("profile_viewed");
     if (s.kind === "paywall") track("paywall_viewed");
   }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -129,7 +145,10 @@ export default function Funnel() {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
           <div className="brand">Get Honey</div>
-          <div className="count">{qPos >= 0 ? `${qPos + 1}/${QUESTION_IDS.length}` : ""}</div>
+          <div className="hdr-right">
+            {qPos >= 0 && <span className="count">{`${qPos + 1}/${QUESTION_IDS.length}`}</span>}
+            <LangSwitch lang={lang} onChange={changeLang} />
+          </div>
           {qPos >= 0 && (
             <div className="progress"><div style={{ width: `${((qPos + 1) / QUESTION_IDS.length) * 100}%` }} /></div>
           )}
@@ -144,6 +163,7 @@ export default function Funnel() {
           plan={plan} setPlan={setPlan}
           answer={answer} setOpen={(k, v) => setA((prev) => ({ ...prev, [k]: v }))}
           next={next} back={back} restart={restart}
+          lang={lang} onLang={changeLang}
         />
       </div>
     </main>
@@ -159,12 +179,39 @@ type ViewProps = {
   answer: (k: string, v: string | string[] | number, extra?: Record<string, unknown>) => void;
   setOpen: (k: string, v: string) => void;
   next: () => void; back: () => void; restart: () => void;
+  lang: Lang; onLang: (l: Lang) => void;
 };
+
+function LangSwitch({ lang, onChange, floating }: { lang: Lang; onChange: (l: Lang) => void; floating?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const cur = LANGS.find((x) => x.id === lang)!;
+  return (
+    <div className={`lang ${floating ? "floating" : ""}`}>
+      <button className="lang-btn" onClick={() => setOpen((o) => !o)} aria-label="Language">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" /></svg>
+        {cur.label}
+        <span className="caret">▾</span>
+      </button>
+      {open && (
+        <>
+          <div className="lang-scrim" onClick={() => setOpen(false)} />
+          <div className="lang-menu">
+            {LANGS.map((l) => (
+              <button key={l.id} className={l.id === lang ? "on" : ""} onClick={() => { onChange(l.id); setOpen(false); }}>
+                <b>{l.label}</b> {l.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function ScreenView(p: ViewProps) {
   const { s, t } = p;
   switch (s.kind) {
-    case "start": return <Start next={p.next} />;
+    case "start": return <Start next={p.next} lang={p.lang} onLang={p.onLang} />;
     case "photo": return <PhotoQ {...p} s={s} />;
     case "single": return <SingleQ {...p} s={s} />;
     case "multi": return <MultiQ {...p} s={s} />;
@@ -176,7 +223,7 @@ function ScreenView(p: ViewProps) {
           <img className="hero-img" src={transitionImg(s.id, p.a, p.eth, s.img)} alt="" />
           <h1 className="title">{t(s.title)}</h1>
           <p className="sub">{t(s.text)}</p>
-          <Bottom><button className="btn" onClick={p.next}>Continue</button></Bottom>
+          <Bottom><button className="btn" onClick={p.next}>{T("Continue")}</button></Bottom>
         </div>
       );
     case "fact": return <Fact next={p.next} />;
@@ -214,22 +261,23 @@ function QHead({ q, sub, t }: { q?: string; sub?: string; t: (s?: string) => str
 }
 
 // ---------- 01 Start ----------
-function Start({ next }: { next: () => void }) {
+function Start({ next, lang, onLang }: { next: () => void; lang: Lang; onLang: (l: Lang) => void }) {
   return (
     <div className="col start">
       <div className="start-img">
         <img src="/img/common/start/hero.jpg" alt="" />
+        <LangSwitch lang={lang} onChange={onLang} floating />
       </div>
-      <div className="pill">2-MINUTE QUIZ · 18+</div>
-      <h1 className="hook">She&apos;s been waiting to hear about your day.</h1>
-      <p className="sub">Create your AI girlfriend in 2 minutes. She listens first, then she is all yours.</p>
+      <div className="pill">{T("2-MINUTE QUIZ · 18+")}</div>
+      <h1 className="hook">{T("She's been waiting to hear about your day.")}</h1>
+      <p className="sub">{T("Create your AI girlfriend in 2 minutes. She listens first, then she is all yours.")}</p>
       <Bottom>
-        <button className="btn" onClick={next}>Meet her</button>
+        <button className="btn" onClick={next}>{T("Meet her")}</button>
         <p className="fine">
-          By continuing you confirm you are 18+ and agree to the{" "}
-          <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Use</a>
-          {" "}and{" "}
-          <a className="legal" href="https://get-honey.today/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+          {T("By continuing you confirm you are 18+ and agree to the")}{" "}
+          <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">{T("Terms of Use")}</a>
+          {" "}{T("and")}{" "}
+          <a className="legal" href="https://get-honey.today/legal/privacy-policy" target="_blank" rel="noopener noreferrer">{T("Privacy Policy")}</a>.
         </p>
       </Bottom>
     </div>
@@ -251,9 +299,9 @@ function PhotoQ(p: ViewProps & { s: Extract<Screen, { kind: "photo" }> }) {
       <div className="grid">
         {s.options.map((o) => (
           <button key={o.id} className={`photo ${sel === o.id ? "on" : ""}`} onClick={() => pick(o)}>
-            <img src={s.img(p.eth, o.id)} alt={o.label}
+            <img src={s.img(p.eth, o.id)} alt={TL(s.key, o.label)}
               onError={(e) => { if (s.id === "scenario" && !e.currentTarget.src.includes("/common/")) e.currentTarget.src = `/img/common/scenario/${o.id}.jpg`; }} />
-            <span className="photo-label">{o.label}</span>
+            <span className="photo-label">{TL(s.key, o.label)}</span>
           </button>
         ))}
       </div>
@@ -276,7 +324,7 @@ function SingleQ(p: ViewProps & { s: Extract<Screen, { kind: "single" }> }) {
         {s.options.map((o) => (
           <button key={o.id} className={`ans ${sel === o.id ? "on" : ""}`} onClick={() => pick(o)}>
             {o.emoji && <span className="emo">{o.emoji}</span>}
-            <span>{o.label}</span>
+            <span>{TL(s.key, o.label)}</span>
           </button>
         ))}
       </div>
@@ -301,13 +349,13 @@ function MultiQ(p: ViewProps & { s: Extract<Screen, { kind: "multi" }> }) {
         {s.options.map((o) => (
           <button key={o.id} className={`ans ${sel.includes(o.id) ? "on" : ""}`} onClick={() => toggle(o.id)}>
             {o.emoji && <span className="emo">{o.emoji}</span>}
-            <span className="grow">{o.label}</span>
+            <span className="grow">{TL(s.key, o.label)}</span>
             <span className={`check ${sel.includes(o.id) ? "on" : ""}`}>{sel.includes(o.id) ? "✓" : ""}</span>
           </button>
         ))}
       </div>
       <Bottom>
-        <button className="btn" disabled={!sel.length} onClick={() => { p.answer(s.key, sel); p.next(); }}>Continue</button>
+        <button className="btn" disabled={!sel.length} onClick={() => { p.answer(s.key, sel); p.next(); }}>{T("Continue")}</button>
       </Bottom>
     </div>
   );
@@ -325,15 +373,15 @@ function HerName(p: ViewProps) {
   return (
     <div className="col">
       <QHead q={p.s.q} sub={p.s.sub} t={t} />
-      <input className="input" placeholder="Type her name" maxLength={20} value={p.herName}
+      <input className="input" placeholder={T("Type her name")} maxLength={20} value={p.herName}
         onChange={(e) => p.setHerName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} />
-      <p className="chips-label">Can&apos;t think of one? Pick one of these</p>
+      <p className="chips-label">{T("Can't think of one? Pick one of these")}</p>
       <div className="chips">
         {NAME_CHIPS.map((c) => (
           <button key={c} className={`chip ${p.herName === c ? "on" : ""}`} onClick={() => p.setHerName(c)}>{c}</button>
         ))}
       </div>
-      <Bottom><button className="btn" disabled={!p.herName.trim()} onClick={go}>Continue</button></Bottom>
+      <Bottom><button className="btn" disabled={!p.herName.trim()} onClick={go}>{T("Continue")}</button></Bottom>
     </div>
   );
 }
@@ -348,11 +396,11 @@ function YouName(p: ViewProps) {
   return (
     <div className="col">
       <QHead q={p.s.q} sub={p.s.sub} t={t} />
-      <input className="input" placeholder="Your name" maxLength={20} value={p.youName}
+      <input className="input" placeholder={T("Your name")} maxLength={20} value={p.youName}
         onChange={(e) => p.setYouName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go(false)} />
       <Bottom>
-        <button className="btn" disabled={!p.youName.trim()} onClick={() => go(false)}>Continue</button>
-        <button className="link" onClick={() => go(true)}>Skip</button>
+        <button className="btn" disabled={!p.youName.trim()} onClick={() => go(false)}>{T("Continue")}</button>
+        <button className="link" onClick={() => go(true)}>{T("Skip")}</button>
       </Bottom>
     </div>
   );
@@ -362,7 +410,7 @@ function YouName(p: ViewProps) {
 function Fact({ next }: { next: () => void }) {
   return (
     <div className="col">
-      <div className="fact-num">1 in 2</div>
+      <div className="fact-num">{T("1 in 2")}</div>
       <div className="people" aria-hidden="true">
         {Array.from({ length: 10 }).map((_, i) => (
           <svg key={i} className={i % 2 === 0 ? "on" : ""} viewBox="0 0 24 40" width="26" height="44">
@@ -371,10 +419,10 @@ function Fact({ next }: { next: () => void }) {
           </svg>
         ))}
       </div>
-      <h1 className="title">You&apos;re not the only one.</h1>
-      <p className="sub">About 1 in 2 adults in America say they feel lonely. Wanting someone to talk to at the end of the day is completely normal.</p>
-      <p className="source center-text">Source: U.S. Surgeon General&apos;s Advisory on Loneliness and Isolation, 2023</p>
-      <Bottom><button className="btn" onClick={next}>Continue</button></Bottom>
+      <h1 className="title">{T("You're not the only one.")}</h1>
+      <p className="sub">{T("About 1 in 2 adults in America say they feel lonely. Wanting someone to talk to at the end of the day is completely normal.")}</p>
+      <p className="source center-text">{T("Source: U.S. Surgeon General's Advisory on Loneliness and Isolation, 2023")}</p>
+      <Bottom><button className="btn" onClick={next}>{T("Continue")}</button></Bottom>
     </div>
   );
 }
@@ -389,18 +437,18 @@ function OpenQ(p: ViewProps & { s: Extract<Screen, { kind: "open" }> }) {
     track("open_text_submitted", { question_id: s.key, skipped: skipped || !v, length: v.length, text: v.slice(0, 200) });
     p.next();
   };
-  const addChip = (c: string) => setText((cur) => (cur.trim() ? `${cur.trim()}, ${c.toLowerCase()}` : c).slice(0, 200));
+  const addChip = (c0: string) => { const c = T(c0); setText((cur) => (cur.trim() ? `${cur.trim()}, ${c.toLowerCase()}` : c).slice(0, 200)); };
   return (
     <div className="col">
       <QHead q={s.q} sub={s.sub} t={t} />
-      <textarea className="input area" maxLength={200} placeholder="Type anything…" value={text} onChange={(e) => setText(e.target.value)} />
+      <textarea className="input area" maxLength={200} placeholder={T("Type anything…")} value={text} onChange={(e) => setText(e.target.value)} />
       <div className="counter">{text.length}/200</div>
       <div className="chips">
-        {s.chips.map((c) => <button key={c} className="chip" onClick={() => addChip(c)}>+ {c}</button>)}
+        {s.chips.map((c) => <button key={c} className="chip" onClick={() => addChip(c)}>+ {T(c)}</button>)}
       </div>
       <Bottom>
-        <button className="btn" disabled={!text.trim()} onClick={() => submit(false)}>Continue</button>
-        <button className="link" onClick={() => submit(true)}>Skip</button>
+        <button className="btn" disabled={!text.trim()} onClick={() => submit(false)}>{T("Continue")}</button>
+        <button className="link" onClick={() => submit(true)}>{T("Skip")}</button>
       </Bottom>
     </div>
   );
@@ -414,12 +462,12 @@ function SliderQ(p: ViewProps & { s: Extract<Screen, { kind: "slider" }> }) {
     <div className="col">
       <QHead q={s.q} sub={s.sub} t={t} />
       <div className="slider-box">
-        <div className="slider-val">{s.labels[v - 1]}</div>
+        <div className="slider-val">{T(s.labels[v - 1])}</div>
         <input type="range" min={1} max={5} step={1} value={v} onChange={(e) => setV(Number(e.target.value))}
           className="range" style={{ ["--pct" as string]: `${((v - 1) / 4) * 100}%` }} />
-        <div className="slider-ends"><span>{s.labels[0]}</span><span>{s.labels[4]}</span></div>
+        <div className="slider-ends"><span>{T(s.labels[0])}</span><span>{T(s.labels[4])}</span></div>
       </div>
-      <Bottom><button className="btn" onClick={() => { p.answer(s.key, v); p.next(); }}>Continue</button></Bottom>
+      <Bottom><button className="btn" onClick={() => { p.answer(s.key, v); p.next(); }}>{T("Continue")}</button></Bottom>
     </div>
   );
 }
@@ -437,7 +485,7 @@ function RatingQ(p: ViewProps & { s: Extract<Screen, { kind: "rating" }> }) {
           <button key={n} className={`rate ${v === n ? "on" : ""}`} onClick={() => pick(n)}>{n}</button>
         ))}
       </div>
-      <div className="slider-ends"><span>{s.low}</span><span>{s.high}</span></div>
+      <div className="slider-ends"><span>{T(s.low)}</span><span>{T(s.high)}</span></div>
     </div>
   );
 }
@@ -461,25 +509,25 @@ function FactAi({ next, t }: { next: () => void; t: (s?: string) => string }) {
   return (
     <div className="col">
       <div className="ai-illu" aria-hidden="true">
-        <span className="ai-bubble b1">How was your day?</span>
+        <span className="ai-bubble b1">{T("How was your day?")}</span>
         <span className="ai-heart">
           <svg viewBox="0 0 24 24" width="44" height="44" fill="#fff"><path d="M12 21s-7.5-4.4-9.6-9.2C.9 8.3 3.1 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 2.9 1.5-1.8 3-2.9 5.1-2.9 3.8 0 6 3.8 4.5 7.3C19.5 16.6 12 21 12 21z" /></svg>
         </span>
-        <span className="ai-bubble b2">Tell me everything ❤️</span>
+        <span className="ai-bubble b2">{T("Tell me everything")} ❤️</span>
       </div>
       <h1 className="title">{t("You're in good company")}</h1>
-      <p className="sub">According to <b className="hl">Harvard Business Review</b>, companionship and emotional support is the <b className="hl">#1 way</b> people use AI.</p>
+      <p className="sub">{T("According to")} <b className="hl">Harvard Business Review</b>{T(", companionship and emotional support is the")} <b className="hl">{T("#1 way")}</b> {T("people use AI.")}</p>
       <div className="card ai-rank">
-        <div className="colhead">TOP USES OF AI IN 2025</div>
+        <div className="colhead">{T("TOP USES OF AI IN 2025")}</div>
         {rows.map((r, k) => (
           <div key={r.label} className={`rank-row ${r.on ? "on" : ""}`}>
             <span className="rank-n">#{k + 1}</span>
-            <span className="rank-body"><span>{r.label}</span><span className="rank-bar"><i style={{ width: `${r.w}%`, animationDelay: `${k * 0.15}s` }} /></span></span>
+            <span className="rank-body"><span>{T(r.label)}</span><span className="rank-bar"><i style={{ width: `${r.w}%`, animationDelay: `${k * 0.15}s` }} /></span></span>
           </div>
         ))}
-        <span className="source">Source: Harvard Business Review, “How People Are Really Using Gen AI in 2025”</span>
+        <span className="source">{T("Source:")} Harvard Business Review, “How People Are Really Using Gen AI in 2025”</span>
       </div>
-      <Bottom><button className="btn" onClick={next}>Continue</button></Bottom>
+      <Bottom><button className="btn" onClick={next}>{T("Continue")}</button></Bottom>
     </div>
   );
 }
@@ -496,7 +544,7 @@ function Loader(p: ViewProps) {
     const local = Math.max(0, Math.min(100, Math.round(((pct - from) / (to - from)) * 100)));
     return (
       <div className="lstep">
-        <span>{label}</span>
+        <span>{T(label)}</span>
         <span className={done ? "ok" : ""}>{done ? "✓" : `${local}%`}</span>
       </div>
     );
@@ -550,7 +598,7 @@ function Email(p: ViewProps) {
       <QHead q={p.s.q} sub={p.s.sub} t={p.t} />
       <div className="email-wrap">
         <input className="input" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false}
-          placeholder="you@email.com" value={p.email}
+          placeholder={T("you@email.com")} value={p.email}
           onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 150)}
           onChange={(e) => p.setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} />
         {focus && suggestions.length > 0 && (
@@ -561,16 +609,16 @@ function Email(p: ViewProps) {
           </div>
         )}
       </div>
-      <p className="fine left">🔒 Your email stays private. No spam and nothing explicit in your inbox.</p>
+      <p className="fine left">🔒 {T("Your email stays private. No spam and nothing explicit in your inbox.")}</p>
       <label className="consent">
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         <span className={`box ${consent ? "on" : ""}`}>{consent ? "✓" : ""}</span>
         <span>
-          I want to receive emails from Get Honey about new features and special offers. I can unsubscribe at any time. See the{" "}
-          <a className="legal" href="https://get-honey.today/legal/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+          {T("I want to receive emails from Get Honey about new features and special offers. I can unsubscribe at any time. See the")}{" "}
+          <a className="legal" href="https://get-honey.today/legal/privacy-policy" target="_blank" rel="noopener noreferrer">{T("Privacy Policy")}</a>.
         </span>
       </label>
-      <Bottom><button className="btn" disabled={!valid} onClick={go}>Continue</button></Bottom>
+      <Bottom><button className="btn" disabled={!valid} onClick={go}>{T("Continue")}</button></Bottom>
     </div>
   );
 }
@@ -625,23 +673,23 @@ function Profile(p: ViewProps) {
   const q = quote(a);
   return (
     <div className="col">
-      <div className="portrait"><img src={`/img/${p.eth}/portrait/profile.jpg`} alt="" /><div className="portrait-name">{p.her}<span>● online</span></div></div>
+      <div className="portrait"><img src={`/img/${p.eth}/portrait/profile.jpg`} alt="" /><div className="portrait-name">{p.her}<span>● {T("online")}</span></div></div>
       <h1 className="title">{t("{her} is made for your evenings")}</h1>
       <LonelyGauge a={a} />
       <div className="card compare">
         <div>
-          <div className="colhead">NOW</div>
-          {pains(a).map((x) => <div key={x.label} className="citem dim">{x.emoji} {x.label}</div>)}
+          <div className="colhead">{T("NOW")}</div>
+          {pains(a).map((x) => <div key={x.label} className="citem dim">{x.emoji} {T(x.label)}</div>)}
         </div>
         <div>
           <div className="colhead accent">{t("WITH {her}").toUpperCase()}</div>
-          {withHer(a).map((x) => <div key={x} className="citem">💬 {x}</div>)}
+          {withHer(a).map((x) => <div key={x} className="citem">💬 {T(x)}</div>)}
         </div>
       </div>
       <div className="card">
         <div className="card-title">{t("What {her} knows about you")}</div>
-        {knows(a).map((l) => <div key={l} className="kline">✓ {l}</div>)}
-        {q && <div className="kline quote">You said: “{q}”</div>}
+        {knows(a).map((l) => <div key={l} className="kline">✓ {T(l)}</div>)}
+        {q && <div className="kline quote">{T("You said:")} “{q}”</div>}
       </div>
       <Bottom><button className="btn" onClick={p.next}>{t("Start chatting with {her}")}</button></Bottom>
     </div>
@@ -661,16 +709,16 @@ function LonelyGauge({ a }: { a: Answers }) {
   ];
   return (
     <div className="card gauge">
-      <div className="gauge-head"><span>Your evening loneliness level</span><b className={`lvl ${level.toLowerCase()}`}>{level}</b></div>
+      <div className="gauge-head"><span>{T("Your evening loneliness level")}</span><b className={`lvl ${level.toLowerCase()}`}>{T(level)}</b></div>
       <div className="gauge-bar">
-        <span className="gauge-you" style={{ left: `${pct}%` }}>You</span>
+        <span className="gauge-you" style={{ left: `${pct}%` }}>{T("You")}</span>
         <i style={{ left: `${pct}%` }} />
       </div>
-      <div className="gauge-scale"><span>Low</span><span>Moderate</span><span>High</span></div>
+      <div className="gauge-scale"><span>{T("Low")}</span><span>{T("Moderate")}</span><span>{T("High")}</span></div>
       <div className="gauge-chips">
-        {chips.map(([k, v]) => <div key={k}><small>{k}</small><b>{v}</b></div>)}
+        {chips.map(([k, v]) => <div key={k}><small>{T(k)}</small><b>{T(v)}</b></div>)}
       </div>
-      <p className="fine left">Based only on your answers.</p>
+      <p className="fine left">{T("Based only on your answers.")}</p>
     </div>
   );
 }
@@ -713,6 +761,14 @@ const REVIEWS = [
   },
 ];
 
+const FAQ: [string, string][] = [
+  ["Does she remember our conversations?", "Yes. {her} remembers what you tell her and what you like, so every chat picks up where you left off."],
+  ["What happens after I pay?", "You get instant access to {her} in your browser: chat, photos and voice messages. No app to install."],
+  ["Is it discreet?", "Yes. The charge has a neutral name on your statement, and your chats are private."],
+  ["Can I cancel any time?", "Yes, in 2 taps in your account settings. You keep access until the end of the paid period."],
+  ["Is {her} a real person?", "No. {her} is an AI companion, created from your answers. She is available any time you are."],
+];
+
 const RESEARCH = [
   { stat: "1 in 2", text: "adults in America say they feel lonely", src: "U.S. Surgeon General, 2023" },
   { stat: "#1", text: "way people use AI is companionship and emotional support", src: "Harvard Business Review, 2025" },
@@ -738,18 +794,18 @@ function Paywall(p: ViewProps) {
   const claim = () => { setGift(false); track("discount_popup_claimed"); };
   const toPlans = () => plansRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  const wants = ((a.wants as string[]) || []).map((w) => WANT_PHRASE[w]).filter(Boolean).slice(0, 2);
+  const wants = ((a.wants as string[]) || []).map((w) => WANT_PHRASE[w]).filter(Boolean).slice(0, 2).map((w) => T(w));
   const motive = wants.length === 2
-    ? `You said you want ${wants[0]} and ${wants[1]}. ${p.her} is both.`
-    : wants.length === 1 ? `You said you want ${wants[0]}. ${p.her} is exactly that.` : "";
-  const scenario = SCENARIO_LABEL[a.scenario as string];
+    ? T("You said you want {w1} and {w2}. {her} is both.", { w1: wants[0], w2: wants[1] })
+    : wants.length === 1 ? T("You said you want {w1}. {her} is exactly that.", { w1: wants[0] }) : "";
+  const scenario = SCENARIO_LABEL[a.scenario as string] ? T(SCENARIO_LABEL[a.scenario as string]) : "";
   const tags = [
-    WORK_TAG[a.work_type as string],
-    ["almost_every", "few_week"].includes(a.lonely_freq as string) ? "Lonely evenings" : "",
+    WORK_TAG[a.work_type as string] ? T(WORK_TAG[a.work_type as string]) : "",
+    ["almost_every", "few_week"].includes(a.lonely_freq as string) ? T("Lonely evenings") : "",
     scenario,
   ].filter(Boolean);
   const opener = a.work_type === "shifts" ? "Long shift?" : a.work_type === "remote" ? "Stuck at home all day?" : "Long day?";
-  const msg = `Hey ${p.you || "you"}. ${opener} Come here, tell me everything…`;
+  const msg = T("Hey {name}. {opener} Come here, tell me everything…", { name: p.you || T("you"), opener: T(opener) });
   const teasers = [
     a.bust ? `/img/${p.eth}/bust/${a.bust}.jpg` : `/img/${p.eth}/portrait/profile.jpg`,
     a.body ? `/img/${p.eth}/body/${a.body}.jpg` : `/img/${p.eth}/portrait/paywall.jpg`,
@@ -762,12 +818,12 @@ function Paywall(p: ViewProps) {
   };
   const benefits = [
     ["💬", t("Flirty chats with {her}, any time of day")],
-    ["🧠", "She remembers your chats and what you like"],
-    ["📸", "Spicy photos and videos, just for you"],
-    ["🎧", "Voice messages in her voice"],
-    ["🎭", scenario ? `Role-play, starting with “${scenario}”` : "Role-play scenarios"],
-    ["🥰", "Sweet when you need it, flirty when you want it"],
-    ["✨", "Her look and personality, exactly as you chose"],
+    ["🧠", T("She remembers your chats and what you like")],
+    ["📸", T("Spicy photos and videos, just for you")],
+    ["🎧", T("Voice messages in her voice")],
+    ["🎭", scenario ? T("Role-play, starting with “{scenario}”", { scenario }) : T("Role-play scenarios")],
+    ["🥰", T("Sweet when you need it, flirty when you want it")],
+    ["✨", T("Her look and personality, exactly as you chose")],
   ];
   const ctaLabel = t("Reply to {her}");
   const selected = PLANS.find((x) => x.id === p.plan) || PLANS[1];
@@ -776,21 +832,21 @@ function Paywall(p: ViewProps) {
       <div className="plans">
         {PLANS.filter((x) => !x.upsell).map((pl) => (
           <button key={pl.id} className={`plan ${p.plan === pl.id ? "on" : ""} ${pl.popular ? "popular" : ""}`} onClick={() => pick(pl.id)}>
-            {pl.popular && <span className="badge pop">MOST POPULAR</span>}
-            {pl.best && <span className="badge best">BEST VALUE</span>}
+            {pl.popular && <span className="badge pop">{T("MOST POPULAR")}</span>}
+            {pl.best && <span className="badge best">{T("BEST VALUE")}</span>}
             <span className="radio">{p.plan === pl.id ? "✓" : ""}</span>
-            <span className="plan-main"><b>{pl.label}</b>{!expired && <small>then {pl.renew}</small>}</span>
+            <span className="plan-main"><b>{T(pl.label)}</b>{!expired && <small>{T("then {renew}", { renew: T(pl.renew) })}</small>}</span>
             {expired ? (
               <span className="plan-price">
                 <b>${pl.old}</b>
-                <small>${(pl.old / pl.days).toFixed(2)} / day</small>
+                <small>{T("{price} / day", { price: `$${(pl.old / pl.days).toFixed(2)}` })}</small>
               </span>
             ) : (
               <span className="plan-price">
                 <span className="save">-{Math.round((1 - pl.price / pl.old) * 100)}%</span>
                 <s>${pl.old}</s>
                 <b>${pl.price}</b>
-                <small>${(pl.price / pl.days).toFixed(2)} / day</small>
+                <small>{T("{price} / day", { price: `$${(pl.price / pl.days).toFixed(2)}` })}</small>
               </span>
             )}
           </button>
@@ -799,9 +855,8 @@ function Paywall(p: ViewProps) {
       <button ref={ref} className="btn cta" onClick={p.next}>{ctaLabel}</button>
       <PaySecure />
       <p className="disclaimer">
-        By selecting a payment method and proceeding, you agree that if you don&apos;t cancel prior to the end of the current period,
-        you will automatically be charged the full price of ${selected.old} {selected.every} until you cancel in settings. Learn more in{" "}
-        <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
+        {T("By selecting a payment method and proceeding, you agree that if you don't cancel prior to the end of the current period, you will automatically be charged the full price of {price} {every} until you cancel in settings. Learn more in", { price: `$${selected.old}`, every: T(selected.every) })}{" "}
+        <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">{T("Terms of Service")}</a>.
       </p>
     </>
   );
@@ -809,8 +864,8 @@ function Paywall(p: ViewProps) {
   return (
     <div className="col pw">
       <div className="timer">
-        <div>{expired ? <><small>Your personal discount</small><b>Expired</b></> : <><small>Your discount is reserved for</small><b>{timer}</b></>}</div>
-        {!expired && <button onClick={toPlans}>Get discount</button>}
+        <div>{expired ? <><small>{T("Your personal discount")}</small><b>{T("Expired")}</b></> : <><small>{T("Your discount is reserved for")}</small><b>{timer}</b></>}</div>
+        {!expired && <button onClick={toPlans}>{T("Get discount")}</button>}
       </div>
 
       <div className="portrait wide"><img src={`/img/${p.eth}/portrait/paywall.jpg`} alt="" /></div>
@@ -821,7 +876,7 @@ function Paywall(p: ViewProps) {
       {!!tags.length && <div className="tags">{tags.map((x) => <span key={x} className="tag">{x}</span>)}</div>}
 
       <div className="card chat">
-        <div className="chat-head"><img src={`/img/${p.eth}/portrait/profile.jpg`} alt="" /><b>{p.her}</b><span>● online</span></div>
+        <div className="chat-head"><img src={`/img/${p.eth}/portrait/profile.jpg`} alt="" /><b>{p.her}</b><span>● {T("online")}</span></div>
         <div className="bubble">{msg}</div>
         <div className="teasers">
           {teasers.map((src, i) => (
@@ -832,23 +887,23 @@ function Paywall(p: ViewProps) {
       </div>
 
       <div className="card">
-        <div className="card-title">What you get</div>
+        <div className="card-title">{T("What you get")}</div>
         {benefits.map(([e, x]) => <div key={x} className="kline"><span className="bi">{e}</span>{x}</div>)}
       </div>
 
       <h2 className="offer-title" ref={plansRef}>{(p.you ? `${p.you}, ` : "") + t("{her} is waiting to send you her hot photos")}</h2>
       {expired
-        ? <div className="offer-head">Your personal discount has expired</div>
-        : <div className="offer-head">Your personal discount: <span className="pct">up to -60%</span></div>}
+        ? <div className="offer-head">{T("Your personal discount has expired")}</div>
+        : <div className="offer-head">{T("Your personal discount:")} <span className="pct">{T("up to -60%")}</span></div>}
       {plansBlock(ctaRef)}
 
       <div className="reviews">
-        <h2 className="section-title">What our users say about our AI models</h2>
+        <h2 className="section-title">{T("What our users say about our AI models")}</h2>
         {REVIEWS.map((r) => (
           <div key={r.name} className="card review">
             <div className="rev-head">
               <span className="rev-ava" style={{ background: r.color }}>{r.initials}</span>
-              <span className="rev-who"><b>{r.name}</b><small>{r.meta}</small></span>
+              <span className="rev-who"><b>{r.name}</b><small>{T(r.meta)}</small></span>
               <span className="stars">★★★★★</span>
             </div>
             <p className="rev-title">{r.title}</p>
@@ -859,22 +914,18 @@ function Paywall(p: ViewProps) {
 
       <h2 className="section-title">{t("{her}'s behaviour is built on research into what men need")}</h2>
       <div className="research">
-        <div className="card-title">What the research says</div>
+        <div className="card-title">{T("What the research says")}</div>
         {RESEARCH.map((r) => (
           <div key={r.src} className="rrow">
-            <span className="rstat">{r.stat}</span>
-            <span className="rtext">{r.text}<small>{r.src}</small></span>
+            <span className="rstat">{TL("research", r.stat)}</span>
+            <span className="rtext">{T(r.text)}<small>{r.src}</small></span>
           </div>
         ))}
       </div>
 
-      <h2 className="section-title">Frequently asked questions</h2>
+      <h2 className="section-title">{T("Frequently asked questions")}</h2>
       <div className="faq">
-        <details><summary>Does she remember our conversations?</summary><p>Yes. {p.her} remembers what you tell her and what you like, so every chat picks up where you left off.</p></details>
-        <details><summary>What happens after I pay?</summary><p>You get instant access to {p.her} in your browser: chat, photos and voice messages. No app to install.</p></details>
-        <details><summary>Is it discreet?</summary><p>Yes. The charge has a neutral name on your statement, and your chats are private.</p></details>
-        <details><summary>Can I cancel any time?</summary><p>Yes, in 2 taps in your account settings. You keep access until the end of the paid period.</p></details>
-        <details><summary>Is {p.her} a real person?</summary><p>No. {p.her} is an AI companion, created from your answers. She is available any time you are.</p></details>
+        {FAQ.map(([q, ans]) => <details key={q}><summary>{T(q)}</summary><p>{T(ans)}</p></details>)}
       </div>
 
       <h2 className="offer-title small">{t(expired ? "Meet {her} tonight" : "Get your discount and meet {her} tonight")}</h2>
@@ -885,11 +936,11 @@ function Paywall(p: ViewProps) {
           <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
         </div>
         <div>
-          <div className="card-title">Money-back guarantee</div>
-          <p className="fine left">We&apos;re so confident you&apos;ll love your experience that we offer a full money-back guarantee. If you&apos;re not completely satisfied within the first 3 days, simply contact our support team and we&apos;ll refund your purchase — no questions asked.</p>
+          <div className="card-title">{T("Money-back guarantee")}</div>
+          <p className="fine left">{T("We're so confident you'll love your experience that we offer a full money-back guarantee. If you're not completely satisfied within the first 3 days, simply contact our support team and we'll refund your purchase — no questions asked.")}</p>
         </div>
       </div>
-      <p className="fine">The discounted price applies to the first period. Then your plan renews automatically at the regular price shown above.</p>
+      <p className="fine">{T("The discounted price applies to the first period. Then your plan renews automatically at the regular price shown above.")}</p>
 
 
       {gift && (
@@ -897,10 +948,10 @@ function Paywall(p: ViewProps) {
           <div className="modal gift">
             <div className="confetti" aria-hidden="true">{Array.from({ length: 18 }).map((_, i) => <i key={i} />)}</div>
             <div className="gift-emoji">🎁</div>
-            <p className="woo">Woo-hoo!</p>
+            <p className="woo">{T("Woo-hoo!")}</p>
             <p className="sub">{t("We'd like to give you a personal first-time introductory discount, so you can meet {her} tonight")}</p>
-            <div className="big-off">up to <b>60%</b> OFF</div>
-            <button className="btn" onClick={claim}>Claim my discount</button>
+            <div className="big-off">{T("up to")} <b>60%</b> {T("OFF")}</div>
+            <button className="btn" onClick={claim}>{T("Claim my discount")}</button>
           </div>
         </div>
       )}
@@ -990,22 +1041,22 @@ function Checkout(p: ViewProps) {
         <button className="co-close" aria-label="Close" onClick={() => { setExitAsk(true); track("exit_intent_shown"); }}>
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#9a9ca5" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
-        {!expired && <span className="co-timer">⏱ Your discount reserved for {timer}</span>}
+        {!expired && <span className="co-timer">⏱ {T("Your discount reserved for {timer}", { timer })}</span>}
       </div>
       <h1 className="title co-title">{p.t("{her} is one tap away")}</h1>
 
       <div className="co-box">
-        <div className="co-label">Select your payment method</div>
+        <div className="co-label">{T("Select your payment method")}</div>
         <div className="co-methods">
           <button className={`co-method ${method === "fast" ? "on" : ""}`} onClick={() => choose("fast")}>
-            <b>Fast checkout</b>
+            <b>{T("Fast checkout")}</b>
             <span className="co-mini">
               <span className="wmini"><AppleMark size={14} />Pay</span>
               <span className="wmini"><GoogleG size={13} />Pay</span>
             </span>
           </button>
           <button className={`co-method ${method === "card" ? "on" : ""}`} onClick={() => choose("card")}>
-            <b>Card payment</b>
+            <b>{T("Card payment")}</b>
             <span className="co-mini cards">
               {[siVisa, siMastercard, siAmericanexpress].map((l) => (
                 <span key={l.slug} className="paylogo xs"><svg viewBox="0 0 24 24"><path d={l.path} fill={`#${l.hex}`} /></svg></span>
@@ -1015,10 +1066,10 @@ function Checkout(p: ViewProps) {
         </div>
 
         <div className="co-sum">
-          <div className="sumrow"><span>{pl.months}-month plan</span><span>{fmt(pl.old)}</span></div>
-          {!expired && <div className="sumrow off"><span>{pct}% introductory discount</span><span>−{fmt(discount)}</span></div>}
-          <div className="sumrow total"><span>Total today</span><b>{fmt(total)}</b></div>
-          {!expired && <div className="saved">🔥 You just saved {fmt(discount)} ({pct}% off)</div>}
+          <div className="sumrow"><span>{T(pl.months === 1 ? "1-month plan" : "{n}-month plan", { n: pl.months })}</span><span>{fmt(pl.old)}</span></div>
+          {!expired && <div className="sumrow off"><span>{T("{pct}% introductory discount", { pct })}</span><span>−{fmt(discount)}</span></div>}
+          <div className="sumrow total"><span>{T("Total today")}</span><b>{fmt(total)}</b></div>
+          {!expired && <div className="saved">🔥 {T("You just saved {amount} ({pct}% off)", { amount: fmt(discount), pct })}</div>}
         </div>
 
         {method === "fast" ? (
@@ -1028,24 +1079,23 @@ function Checkout(p: ViewProps) {
           </div>
         ) : (
           <div className="co-card">
-            <input className="input" inputMode="numeric" autoComplete="off" placeholder="Card number" value={card.number}
+            <input className="input" inputMode="numeric" autoComplete="off" placeholder={T("Card number")} value={card.number}
               onChange={(e) => setCard({ ...card, number: cardNumber(e.target.value) })} />
             <div className="row2">
-              <input className="input" inputMode="numeric" autoComplete="off" placeholder="MM / YY" value={card.exp}
+              <input className="input" inputMode="numeric" autoComplete="off" placeholder={T("MM / YY")} value={card.exp}
                 onChange={(e) => setCard({ ...card, exp: cardExp(e.target.value) })} />
               <input className="input" inputMode="numeric" autoComplete="off" placeholder="CVC" value={card.cvc}
                 onChange={(e) => setCard({ ...card, cvc: e.target.value.replace(/\D/g, "").slice(0, 4) })} />
             </div>
-            <input className="input" autoComplete="off" placeholder="Name on card" value={card.name}
+            <input className="input" autoComplete="off" placeholder={T("Name on card")} value={card.name}
               onChange={(e) => setCard({ ...card, name: e.target.value })} />
-            <button className="btn cta" disabled={!cardOk} onClick={() => pay("card")}>Pay {fmt(total)}</button>
+            <button className="btn cta" disabled={!cardOk} onClick={() => pay("card")}>{T("Pay {amount}", { amount: fmt(total) })}</button>
           </div>
         )}
         <PaySecure />
         <p className="disclaimer">
-          By selecting a payment method and proceeding, you agree that if you don&apos;t cancel prior to the end of the current period,
-          you will automatically be charged the full price of {fmt(pl.old)} {pl.every} until you cancel in settings. Learn more in{" "}
-          <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
+          {T("By selecting a payment method and proceeding, you agree that if you don't cancel prior to the end of the current period, you will automatically be charged the full price of {price} {every} until you cancel in settings. Learn more in", { price: fmt(pl.old), every: T(pl.every) })}{" "}
+          <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">{T("Terms of Service")}</a>.
         </p>
       </div>
 
@@ -1053,16 +1103,16 @@ function Checkout(p: ViewProps) {
         <div className="modal-bg">
           <div className="modal upsell">
             <button className="modal-x" aria-label="Close" onClick={() => { setUpsell(false); track("upsell_declined"); }}>✕</button>
-            <span className="badge-inline">SPECIAL OFFER</span>
-            <p className="title small">Upgrade to 6 months and save more</p>
-            <p className="sub">Most men who start with 3 months keep going anyway. The 6-month plan is the best price per day, so you get twice the time for much less than two 3-month plans.</p>
+            <span className="badge-inline">{T("SPECIAL OFFER")}</span>
+            <p className="title small">{T("Upgrade to 6 months and save more")}</p>
+            <p className="sub">{T("Most men who start with 3 months keep going anyway. The 6-month plan is the best price per day, so you get twice the time for much less than two 3-month plans.")}</p>
             <div className="up-compare">
-              <div><small>3 months</small><b>{fmt(three.price / three.days)}</b><small>per day</small></div>
-              <div className="on"><small>6 months</small><b>{fmt(six.price / six.days)}</b><small>per day</small></div>
+              <div><small>{T("3 months")}</small><b>{fmt(three.price / three.days)}</b><small>{T("per day")}</small></div>
+              <div className="on"><small>{T("6 months")}</small><b>{fmt(six.price / six.days)}</b><small>{T("per day")}</small></div>
             </div>
-            <p className="up-price">{expired ? fmt(six.old) : <><s>{fmt(six.old)}</s> <b>{fmt(six.price)}</b></>} for 6 months</p>
-            <button className="btn cta" onClick={() => { p.setPlan("6m"); setUpsell(false); track("upsell_accepted", { plan: "6m", price: expired ? six.old : six.price }); }}>Yes, give me 6 months</button>
-            <button className="link" onClick={() => { setUpsell(false); track("upsell_declined"); }}>No thanks, keep 3 months</button>
+            <p className="up-price">{expired ? fmt(six.old) : <><s>{fmt(six.old)}</s> <b>{fmt(six.price)}</b></>} {T("for 6 months")}</p>
+            <button className="btn cta" onClick={() => { p.setPlan("6m"); setUpsell(false); track("upsell_accepted", { plan: "6m", price: expired ? six.old : six.price }); }}>{T("Yes, give me 6 months")}</button>
+            <button className="link" onClick={() => { setUpsell(false); track("upsell_declined"); }}>{T("No thanks, keep 3 months")}</button>
           </div>
         </div>
       )}
@@ -1071,11 +1121,11 @@ function Checkout(p: ViewProps) {
         <div className="modal-bg">
           <div className="modal exit">
             <div className="gift-emoji">😢</div>
-            <p className="title small">Are you sure you want to skip your one-time introductory discount?</p>
+            <p className="title small">{T("Are you sure you want to skip your one-time introductory discount?")}</p>
             <p className="sub">{p.t("{her} is ready and waiting for you. This discount won't be offered again.")}</p>
-            {!expired && <div className="big-off">save <b>{pct}%</b> today</div>}
-            <button className="btn cta" onClick={() => { setExitAsk(false); track("exit_discount_kept"); }}>Keep my discount</button>
-            <button className="link" onClick={() => { setExitAsk(false); track("exit_discount_skipped"); p.back(); }}>Skip discount</button>
+            {!expired && <div className="big-off">{T("save")} <b>{pct}%</b> {T("today")}</div>}
+            <button className="btn cta" onClick={() => { setExitAsk(false); track("exit_discount_kept"); }}>{T("Keep my discount")}</button>
+            <button className="link" onClick={() => { setExitAsk(false); track("exit_discount_skipped"); p.back(); }}>{T("Skip discount")}</button>
           </div>
         </div>
       )}
@@ -1088,9 +1138,9 @@ function Success(p: ViewProps) {
   return (
     <div className="col center success">
       <div className="portrait round"><img src={`/img/${p.eth}/portrait/profile.jpg`} alt="" /></div>
-      <h1 className="title">Thank you for testing this funnel!</h1>
-      <p className="sub">Hope you enjoyed meeting {p.her}. This is a demo only: no payment was made and no card details were stored.</p>
-      <Bottom><button className="btn ghost" onClick={p.restart}>Start over</button></Bottom>
+      <h1 className="title">{T("Thank you for testing this funnel!")}</h1>
+      <p className="sub">{T("Hope you enjoyed meeting {her}. This is a demo only: no payment was made and no card details were stored.")}</p>
+      <Bottom><button className="btn ghost" onClick={p.restart}>{T("Start over")}</button></Bottom>
     </div>
   );
 }
