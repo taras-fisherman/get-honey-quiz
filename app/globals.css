@@ -325,7 +325,7 @@ a.legal { color: var(--accent); text-decoration: underline; text-underline-offse
 
 /* ---- v6: loader reviews marquee + AI fact screen ---- */
 .marquee { width: calc(100% + 32px); margin: 4px -16px 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
-.marquee-track { display: flex; gap: 12px; width: max-content; animation: marquee 26s linear infinite; padding: 2px 0; }
+.marquee-track { display: flex; gap: 12px; width: max-content; animation: marquee 48s linear infinite; padding: 2px 0; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .mq-card { flex: 0 0 240px; text-align: left; background: #161616; border: 2px solid var(--stroke); border-radius: 16px; padding: 12px 14px; }
 .mq-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
@@ -350,3 +350,49 @@ a.legal { color: var(--accent); text-decoration: underline; text-underline-offse
 .rank-bar i { display: block; height: 100%; border-radius: 6px; background: #3a3c44; transform-origin: left; animation: grow 0.9s ease both; }
 .rank-row.on .rank-bar i { background: var(--grad); }
 @keyframes grow { from { transform: scaleX(0); } }
+
+/* ---- v7: checkout ---- */
+.co { gap: 12px; }
+.co-top { display: flex; align-items: center; justify-content: center; position: relative; min-height: 40px; }
+.co-close { position: absolute; left: 0; top: 4px; width: 36px; height: 36px; display: grid; place-items: center; }
+.co-timer { font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px; background: var(--sel); border: 1px solid var(--sel-stroke); color: #ffd6d8; font-variant-numeric: tabular-nums; }
+.co-title { font-size: 24px; }
+.co-box { background: #141416; border: 2px solid var(--stroke); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.co-label { text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; }
+.co-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.co-method { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 8px; border-radius: 14px; background: #1b1b1f; border: 2px solid var(--stroke); }
+.co-method.on { border-color: var(--accent); background: #1f1518; box-shadow: 0 0 0 4px rgba(249, 121, 126, 0.12); }
+.co-method b { font-size: 15px; }
+.co-mini { display: flex; gap: 6px; align-items: center; height: 22px; }
+.paylogo.xs { width: 34px; height: 22px; border-radius: 4px; }
+.paylogo.xs svg { width: 24px; height: 16px; }
+.co-sum { border-top: 1px solid var(--stroke); padding-top: 10px; }
+.co-sum .sumrow { color: #c9cad0; font-size: 15px; }
+.co-sum .sumrow.off span:last-child { color: var(--accent); font-weight: 700; }
+.co-sum .sumrow.total { color: #fff; font-size: 19px; font-weight: 800; }
+.saved { text-align: right; color: var(--accent); font-weight: 700; font-size: 14px; margin-top: 4px; }
+.co-pay { display: flex; flex-direction: column; gap: 10px; }
+.wallet-btn { height: 56px; border-radius: 14px; background: #000; border: 1.5px solid #3a3c44; display: grid; place-items: center; }
+.wallet-btn:active { transform: scale(0.99); }
+.co-card { display: flex; flex-direction: column; gap: 10px; }
+.co-card .btn { margin-top: 4px; }
+
+/* upsell + exit modals */
+.modal { position: relative; text-align: center; }
+.modal-x { position: absolute; top: 10px; right: 12px; width: 32px; height: 32px; color: var(--muted); font-size: 18px; }
+.badge-inline { align-self: center; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; padding: 4px 10px; border-radius: 999px; background: var(--accent); color: #0c0c0c; }
+.up-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.up-compare > div { display: flex; flex-direction: column; padding: 12px; border-radius: 14px; border: 2px solid var(--stroke); background: #1b1b1f; }
+.up-compare > div.on { border-color: var(--accent); }
+.up-compare b { font-size: 24px; }
+.up-compare small { color: var(--muted); font-size: 12px; }
+.up-price { font-size: 15px; }
+.up-price s { color: var(--muted); }
+.up-price b { color: var(--accent); font-size: 18px; }
+.modal .link { align-self: center; }
+.wallet-btn { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 24px; font-weight: 600; color: #fff; font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; }
+.wallet-btn span { letter-spacing: -0.01em; }
+.wmini { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid #4a4c55; font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; }
+.co-box .paysafe-logos { gap: 5px; }
+.co-box .paylogo { width: 38px; height: 26px; }
+.co-box .paylogo svg { width: 26px; height: 18px; }

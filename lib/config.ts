@@ -245,9 +245,11 @@ const QUESTION_KINDS = new Set(["photo", "single", "multi", "herName", "youName"
 export const QUESTION_IDS = SCREENS.filter((s) => QUESTION_KINDS.has(s.kind)).map((s) => s.id);
 
 export const PLANS = [
-  { id: "1m", label: "1 month", price: 24.99, old: 49.99, renew: "$49.99 / month", days: 30, popular: false, every: "every month" },
-  { id: "3m", label: "3 months", price: 49.99, old: 109.99, renew: "$109.99 / 3 months", days: 90, popular: true, every: "every 3 months" },
-  { id: "12m", label: "12 months", price: 119.99, old: 299.99, renew: "$299.99 / year", days: 365, best: true, popular: false, every: "every year" },
+  { id: "1m", months: 1, label: "1 month", price: 24.99, old: 49.99, renew: "$49.99 / month", days: 30, popular: false, best: false, upsell: false, every: "every month" },
+  { id: "3m", months: 3, label: "3 months", price: 49.99, old: 109.99, renew: "$109.99 / 3 months", days: 90, popular: true, best: false, upsell: false, every: "every 3 months" },
+  { id: "12m", months: 12, label: "12 months", price: 119.99, old: 299.99, renew: "$299.99 / year", days: 365, popular: false, best: true, upsell: false, every: "every year" },
+  // Offered only as an upsell at checkout for the preselected 3-month plan (price is our hypothesis, not a Get Honey plan).
+  { id: "6m", months: 6, label: "6 months", price: 79.99, old: 179.99, renew: "$179.99 / 6 months", days: 180, popular: false, best: false, upsell: true, every: "every 6 months" },
 ];
 
 // ---------- personalization ----------

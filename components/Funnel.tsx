@@ -7,6 +7,7 @@ import {
 } from "@/lib/config";
 import { initAnalytics, track, setUserProps } from "@/lib/analytics";
 import PaySecure from "@/components/PaySecure";
+import { siApple, siVisa, siMastercard, siAmericanexpress } from "simple-icons";
 
 type Answers = Record<string, string | string[] | number>;
 
@@ -91,7 +92,7 @@ export default function Funnel() {
 
   // ---------- header ----------
   const qPos = QUESTION_IDS.indexOf(s.id);
-  const showHeader = !["start", "loader", "success"].includes(s.kind);
+  const showHeader = !["start", "loader", "success", "checkout"].includes(s.kind);
 
   return (
     <main className="app">
@@ -115,7 +116,7 @@ export default function Funnel() {
           email={email} setEmail={setEmail}
           plan={plan} setPlan={setPlan}
           answer={answer} setOpen={(k, v) => setA((prev) => ({ ...prev, [k]: v }))}
-          next={next} restart={restart}
+          next={next} back={back} restart={restart}
         />
       </div>
     </main>
@@ -130,7 +131,7 @@ type ViewProps = {
   plan: string; setPlan: (v: string) => void;
   answer: (k: string, v: string | string[] | number, extra?: Record<string, unknown>) => void;
   setOpen: (k: string, v: string) => void;
-  next: () => void; restart: () => void;
+  next: () => void; back: () => void; restart: () => void;
 };
 
 function ScreenView(p: ViewProps) {
@@ -441,7 +442,7 @@ function Loader(p: ViewProps) {
   const [pct, setPct] = useState(0);
   useEffect(() => {
     if (pct >= 100) { const id = setTimeout(p.next, 600); return () => clearTimeout(id); }
-    const id = setTimeout(() => setPct((x) => Math.min(100, x + 1)), 90);
+    const id = setTimeout(() => setPct((x) => Math.min(100, x + 1)), 80);
     return () => clearTimeout(id);
   }, [pct]); // eslint-disable-line react-hooks/exhaustive-deps
   const step = (label: string, from: number, to: number) => {
@@ -580,6 +581,7 @@ function Profile(p: ViewProps) {
 
 // ---------- 30 Paywall ----------
 let offerStartedAt = 0; // survives back/forward inside one visit
+let giftShown = false;
 function offerSeconds() {
   if (typeof window === "undefined") return 600;
   const v = Number(new URLSearchParams(window.location.search).get("offer_seconds"));
@@ -632,6 +634,8 @@ function Paywall(p: ViewProps) {
   const cta2Ref = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    if (giftShown) return;
+    giftShown = true;
     const id = setTimeout(() => setGift(!offerExpired()), 400);
     return () => clearTimeout(id);
   }, []);
@@ -686,7 +690,7 @@ function Paywall(p: ViewProps) {
   const plansBlock = (ref: React.RefObject<HTMLButtonElement | null>) => (
     <>
       <div className="plans">
-        {PLANS.map((pl) => (
+        {PLANS.filter((x) => !x.upsell).map((pl) => (
           <button key={pl.id} className={`plan ${p.plan === pl.id ? "on" : ""} ${pl.popular ? "popular" : ""}`} onClick={() => pick(pl.id)}>
             {pl.popular && <span className="badge pop">MOST POPULAR</span>}
             {pl.best && <span className="badge best">BEST VALUE</span>}
@@ -826,26 +830,178 @@ function Paywall(p: ViewProps) {
   );
 }
 
-// ---------- 31 Checkout ----------
-function Checkout(p: ViewProps) {
-  const pl = PLANS.find((x) => x.id === p.plan)!;
-  const price = offerExpired() ? pl.old : pl.price;
-  const buy = () => { track("demo_purchase_completed", { plan: pl.id, price, discount: price !== pl.old }); p.next(); };
+// ---------- 32 Checkout ----------
+let upsellShown = false;
+function useWallet(): "apple" | "google" | "both" {
+  const [w, setW] = useState<"apple" | "google" | "both">("both");
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua))) setW("apple");
+    else if (/Android/.test(ua)) setW("google");
+  }, []);
+  return w;
+}
+
+function AppleMark({ size = 22 }: { size?: number }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill="#fff" aria-hidden="true"><path d={siApple.path} /></svg>;
+}
+function GoogleG({ size = 22 }: { size?: number }) {
   return (
-    <div className="col">
-      <div className="pill">CHECKOUT · DEMO: no payment is taken</div>
-      <h1 className="title">Your plan</h1>
-      <div className="card">
-        <div className="sumrow"><span>{pl.label} plan</span><b>${price}</b></div>
-        <div className="sumrow dim"><span>Then</span><span>{pl.renew}</span></div>
-        <div className="sumrow total"><span>Total today</span><b>${price}</b></div>
+    <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z" />
+      <path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6.1z" />
+      <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z" />
+    </svg>
+  );
+}
+function ApplePayButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="wallet-btn" onClick={onClick} aria-label="Pay with Apple Pay">
+      <AppleMark size={26} /><span>Pay</span>
+    </button>
+  );
+}
+function GooglePayButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="wallet-btn" onClick={onClick} aria-label="Pay with Google Pay">
+      <GoogleG size={24} /><span>Pay</span>
+    </button>
+  );
+}
+
+const fmt = (n: number) => `$${n.toFixed(2)}`;
+
+function Checkout(p: ViewProps) {
+  const wallet = useWallet();
+  const { label: timer, expired } = useCountdown();
+  const [method, setMethod] = useState<"fast" | "card">("fast");
+  const [upsell, setUpsell] = useState(false);
+  const [exitAsk, setExitAsk] = useState(false);
+  const [card, setCard] = useState({ number: "", exp: "", cvc: "", name: "" });
+
+  // Upsell 3 -> 6 months, once per visit, only for the preselected 3-month plan.
+  useEffect(() => {
+    if (p.plan === "3m" && !upsellShown) {
+      upsellShown = true;
+      const id = setTimeout(() => { setUpsell(true); track("upsell_shown", { from: "3m", to: "6m" }); }, 500);
+      return () => clearTimeout(id);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pl = PLANS.find((x) => x.id === p.plan) || PLANS[1];
+  const discount = expired ? 0 : pl.old - pl.price;
+  const total = expired ? pl.old : pl.price;
+  const pct = Math.round((discount / pl.old) * 100);
+  const six = PLANS.find((x) => x.id === "6m")!;
+  const three = PLANS.find((x) => x.id === "3m")!;
+
+  const pay = (via: string) => {
+    track("demo_purchase_completed", { plan: pl.id, price: total, discount: !expired, method: via });
+    p.next();
+  };
+  const choose = (m: "fast" | "card") => { setMethod(m); track("payment_method_selected", { method: m }); };
+
+  const cardNumber = (v: string) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+  const cardExp = (v: string) => { const d = v.replace(/\D/g, "").slice(0, 4); return d.length > 2 ? `${d.slice(0, 2)} / ${d.slice(2)}` : d; };
+  const cardOk = card.number.replace(/\s/g, "").length >= 15 && card.exp.replace(/\D/g, "").length === 4 && card.cvc.length >= 3;
+
+  return (
+    <div className="col co">
+      <div className="co-top">
+        <button className="co-close" aria-label="Close" onClick={() => { setExitAsk(true); track("exit_intent_shown"); }}>
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#9a9ca5" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+        {!expired && <span className="co-timer">⏱ Your discount reserved for {timer}</span>}
       </div>
-      <div className="card demo-card">
-        <div className="fake-field">Card number</div>
-        <div className="row2"><div className="fake-field">MM / YY</div><div className="fake-field">CVC</div></div>
-        <p className="fine left">This is a demo for a test task. No card is needed and nothing is charged.</p>
+      <h1 className="title co-title">{p.t("{her} is one tap away")}</h1>
+
+      <div className="co-box">
+        <div className="co-label">Select your payment method</div>
+        <div className="co-methods">
+          <button className={`co-method ${method === "fast" ? "on" : ""}`} onClick={() => choose("fast")}>
+            <b>Fast checkout</b>
+            <span className="co-mini">
+              <span className="wmini"><AppleMark size={14} />Pay</span>
+              <span className="wmini"><GoogleG size={13} />Pay</span>
+            </span>
+          </button>
+          <button className={`co-method ${method === "card" ? "on" : ""}`} onClick={() => choose("card")}>
+            <b>Card payment</b>
+            <span className="co-mini cards">
+              {[siVisa, siMastercard, siAmericanexpress].map((l) => (
+                <span key={l.slug} className="paylogo xs"><svg viewBox="0 0 24 24"><path d={l.path} fill={`#${l.hex}`} /></svg></span>
+              ))}
+            </span>
+          </button>
+        </div>
+
+        <div className="co-sum">
+          <div className="sumrow"><span>{pl.months}-month plan</span><span>{fmt(pl.old)}</span></div>
+          {!expired && <div className="sumrow off"><span>{pct}% introductory discount</span><span>−{fmt(discount)}</span></div>}
+          <div className="sumrow total"><span>Total today</span><b>{fmt(total)}</b></div>
+          {!expired && <div className="saved">🔥 You just saved {fmt(discount)} ({pct}% off)</div>}
+        </div>
+
+        {method === "fast" ? (
+          <div className="co-pay">
+            {wallet !== "google" && <ApplePayButton onClick={() => pay("apple_pay")} />}
+            {wallet !== "apple" && <GooglePayButton onClick={() => pay("google_pay")} />}
+          </div>
+        ) : (
+          <div className="co-card">
+            <input className="input" inputMode="numeric" autoComplete="off" placeholder="Card number" value={card.number}
+              onChange={(e) => setCard({ ...card, number: cardNumber(e.target.value) })} />
+            <div className="row2">
+              <input className="input" inputMode="numeric" autoComplete="off" placeholder="MM / YY" value={card.exp}
+                onChange={(e) => setCard({ ...card, exp: cardExp(e.target.value) })} />
+              <input className="input" inputMode="numeric" autoComplete="off" placeholder="CVC" value={card.cvc}
+                onChange={(e) => setCard({ ...card, cvc: e.target.value.replace(/\D/g, "").slice(0, 4) })} />
+            </div>
+            <input className="input" autoComplete="off" placeholder="Name on card" value={card.name}
+              onChange={(e) => setCard({ ...card, name: e.target.value })} />
+            <button className="btn cta" disabled={!cardOk} onClick={() => pay("card")}>Pay {fmt(total)}</button>
+          </div>
+        )}
+        <p className="fine">Demo checkout for the test task: nothing is charged, card details are not stored or sent.</p>
+        <PaySecure />
+        <p className="disclaimer">
+          By selecting a payment method and proceeding, you agree that if you don&apos;t cancel prior to the end of the current period,
+          you will automatically be charged the full price of {fmt(pl.old)} {pl.every} until you cancel in settings. Learn more in{" "}
+          <a className="legal" href="https://get-honey.today/legal/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
+        </p>
       </div>
-      <Bottom><button className="btn" onClick={buy}>Complete demo purchase</button></Bottom>
+
+      {upsell && (
+        <div className="modal-bg">
+          <div className="modal upsell">
+            <button className="modal-x" aria-label="Close" onClick={() => { setUpsell(false); track("upsell_declined"); }}>✕</button>
+            <span className="badge-inline">SPECIAL OFFER</span>
+            <p className="title small">Upgrade to 6 months and save more</p>
+            <p className="sub">Most men who start with 3 months keep going anyway. The 6-month plan is the best price per day, so you get twice the time for much less than two 3-month plans.</p>
+            <div className="up-compare">
+              <div><small>3 months</small><b>{fmt(three.price / three.days)}</b><small>per day</small></div>
+              <div className="on"><small>6 months</small><b>{fmt(six.price / six.days)}</b><small>per day</small></div>
+            </div>
+            <p className="up-price">{expired ? fmt(six.old) : <><s>{fmt(six.old)}</s> <b>{fmt(six.price)}</b></>} for 6 months</p>
+            <button className="btn cta" onClick={() => { p.setPlan("6m"); setUpsell(false); track("upsell_accepted", { plan: "6m", price: expired ? six.old : six.price }); }}>Yes, give me 6 months</button>
+            <button className="link" onClick={() => { setUpsell(false); track("upsell_declined"); }}>No thanks, keep 3 months</button>
+          </div>
+        </div>
+      )}
+
+      {exitAsk && (
+        <div className="modal-bg">
+          <div className="modal exit">
+            <div className="gift-emoji">😢</div>
+            <p className="title small">Are you sure you want to skip your one-time introductory discount?</p>
+            <p className="sub">{p.t("{her} is ready and waiting for you. This discount won't be offered again.")}</p>
+            {!expired && <div className="big-off">save <b>{pct}%</b> today</div>}
+            <button className="btn cta" onClick={() => { setExitAsk(false); track("exit_discount_kept"); }}>Keep my discount</button>
+            <button className="link" onClick={() => { setExitAsk(false); track("exit_discount_skipped"); p.back(); }}>Skip discount</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
