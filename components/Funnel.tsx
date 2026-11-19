@@ -825,8 +825,9 @@ function Paywall(p: ViewProps) {
     ["🥰", T("Sweet when you need it, flirty when you want it")],
     ["✨", T("Her look and personality, exactly as you chose")],
   ];
-  const ctaLabel = t("Reply to {her}");
   const selected = PLANS.find((x) => x.id === p.plan) || PLANS[1];
+  // Names the chosen plan and says "continue", so it reads as the next step, not as an instant charge.
+  const ctaLabel = T("Continue with {plan}", { plan: T(selected.label) });
   const plansBlock = (ref: React.RefObject<HTMLButtonElement | null>) => (
     <>
       <div className="plans">
