@@ -990,7 +990,6 @@ function Checkout(p: ViewProps) {
             <button className="btn cta" disabled={!cardOk} onClick={() => pay("card")}>Pay {fmt(total)}</button>
           </div>
         )}
-        <p className="fine">Demo checkout for the test task: nothing is charged, card details are not stored or sent.</p>
         <PaySecure />
         <p className="disclaimer">
           By selecting a payment method and proceeding, you agree that if you don&apos;t cancel prior to the end of the current period,
@@ -1038,8 +1037,8 @@ function Success(p: ViewProps) {
   return (
     <div className="col center success">
       <div className="portrait round"><img src={`/img/${p.eth}/portrait/profile.jpg`} alt="" /></div>
-      <h1 className="title">You&apos;re in.</h1>
-      <p className="sub">{p.t("In the real product, {her} would be waiting for you tonight.")}</p>
+      <h1 className="title">Thank you for testing this funnel!</h1>
+      <p className="sub">Hope you enjoyed meeting {p.her}. This is a demo only: no payment was made and no card details were stored.</p>
       <Bottom><button className="btn ghost" onClick={p.restart}>Start over</button></Bottom>
     </div>
   );
