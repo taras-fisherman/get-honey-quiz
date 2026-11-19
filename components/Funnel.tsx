@@ -183,6 +183,7 @@ function ScreenView(p: ViewProps) {
     case "factAi": return <FactAi next={p.next} t={t} />;
     case "open": return <OpenQ {...p} s={s} />;
     case "slider": return <SliderQ {...p} s={s} />;
+    case "rating": return <RatingQ {...p} s={s} />;
     case "loader": return <Loader {...p} />;
     case "email": return <Email {...p} />;
     case "profile": return <Profile {...p} />;
@@ -423,6 +424,24 @@ function SliderQ(p: ViewProps & { s: Extract<Screen, { kind: "slider" }> }) {
   );
 }
 
+// ---------- rating 1–5 ----------
+function RatingQ(p: ViewProps & { s: Extract<Screen, { kind: "rating" }> }) {
+  const { s, t } = p;
+  const [v, setV] = useState<number>((p.a[s.key] as number) || 0);
+  const pick = (n: number) => { setV(n); p.answer(s.key, n); setTimeout(p.next, 300); };
+  return (
+    <div className="col">
+      <QHead q={s.q} sub={s.sub} t={t} />
+      <div className="rating">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button key={n} className={`rate ${v === n ? "on" : ""}`} onClick={() => pick(n)}>{n}</button>
+        ))}
+      </div>
+      <div className="slider-ends"><span>{s.low}</span><span>{s.high}</span></div>
+    </div>
+  );
+}
+
 // ---------- 27 Loader ----------
 // Excerpts from the reviews Get Honey shows on its own paywall.
 const LOADER_QUOTES = [
@@ -557,11 +576,33 @@ function Email(p: ViewProps) {
 }
 
 // ---------- personalization helpers ----------
+const watchesPorn = (a: Answers) => ((a.evening_end as string[]) || []).includes("porn");
+
 function pains(a: Answers) {
   const opts = (SCREENS.find((x) => x.id === "pains") as Extract<Screen, { kind: "multi" }>).options;
   const sel = ((a.pains as string[]) || []).filter((x) => x !== "fine");
-  if (!sel.length) return [{ emoji: "🙂", label: "Evenings are fine" }, { emoji: "🥱", label: "Could be more fun" }];
-  return sel.slice(0, 3).map((id) => { const o = opts.find((x) => x.id === id)!; return { emoji: o.emoji, label: o.label }; });
+  const list = sel.map((id) => { const o = opts.find((x) => x.id === id)!; return { emoji: o.emoji, label: o.label }; });
+  if (watchesPorn(a)) list.unshift({ emoji: "🔞", label: "Ending the night with porn" });
+  if (!list.length) return [{ emoji: "🙂", label: "Evenings are fine" }, { emoji: "🥱", label: "Could be more fun" }];
+  return list.slice(0, 3);
+}
+
+function withHer(a: Answers) {
+  const base = ["She asks how it went", "She listens first", "Then she is all yours"];
+  return watchesPorn(a) ? ["Someone who actually responds to you", ...base.slice(0, 2)] : base;
+}
+
+// "Evening loneliness" level, computed only from his own answers (screens 11, 12, 13, evening_end).
+function lonelyScore(a: Answers) {
+  const freq: Record<string, number> = { almost_every: 3, few_week: 2, sometimes: 1, rarely: 0 };
+  const tell: Record<string, number> = { nobody: 2, myself: 2, friend: 1, partner: 0 };
+  const painCount = Math.min(3, ((a.pains as string[]) || []).filter((x) => x !== "fine").length);
+  const ends = (a.evening_end as string[]) || [];
+  const endPts = (ends.includes("porn") || ends.includes("scrolling") ? 1 : 0) - (ends.includes("with_someone") ? 1 : 0);
+  const raw = (freq[a.lonely_freq as string] ?? 1) + (tell[a.support_source as string] ?? 1) + painCount + endPts;
+  const pct = Math.max(5, Math.min(97, Math.round((raw / 9) * 100)));
+  const level = pct >= 65 ? "High" : pct >= 35 ? "Moderate" : "Low";
+  return { pct, level };
 }
 
 function knows(a: Answers) {
@@ -586,6 +627,7 @@ function Profile(p: ViewProps) {
     <div className="col">
       <div className="portrait"><img src={`/img/${p.eth}/portrait/profile.jpg`} alt="" /><div className="portrait-name">{p.her}<span>● online</span></div></div>
       <h1 className="title">{t("{her} is made for your evenings")}</h1>
+      <LonelyGauge a={a} />
       <div className="card compare">
         <div>
           <div className="colhead">NOW</div>
@@ -593,7 +635,7 @@ function Profile(p: ViewProps) {
         </div>
         <div>
           <div className="colhead accent">{t("WITH {her}").toUpperCase()}</div>
-          {["She asks how it went", "She listens first", "Then she is all yours"].map((x) => <div key={x} className="citem">💬 {x}</div>)}
+          {withHer(a).map((x) => <div key={x} className="citem">💬 {x}</div>)}
         </div>
       </div>
       <div className="card">
@@ -602,6 +644,33 @@ function Profile(p: ViewProps) {
         {q && <div className="kline quote">You said: “{q}”</div>}
       </div>
       <Bottom><button className="btn" onClick={p.next}>{t("Start chatting with {her}")}</button></Bottom>
+    </div>
+  );
+}
+
+function LonelyGauge({ a }: { a: Answers }) {
+  const { pct, level } = lonelyScore(a);
+  const freq: Record<string, string> = { almost_every: "Almost daily", few_week: "Few times a week", sometimes: "Sometimes", rarely: "Rarely" };
+  const tell: Record<string, string> = { nobody: "Nobody", myself: "No one", friend: "A friend", partner: "Partner" };
+  const ends = (a.evening_end as string[]) || [];
+  const endLabel = ends.includes("porn") ? "Porn" : ends.includes("scrolling") ? "Scrolling" : ends.includes("exhausted") ? "Exhausted" : ends.includes("tv_gaming") ? "TV or gaming" : ends.includes("with_someone") ? "With someone" : "—";
+  const chips = [
+    ["Lonely evenings", freq[a.lonely_freq as string] || "—"],
+    ["Who you tell", tell[a.support_source as string] || "—"],
+    ["Evenings end with", endLabel],
+  ];
+  return (
+    <div className="card gauge">
+      <div className="gauge-head"><span>Your evening loneliness level</span><b className={`lvl ${level.toLowerCase()}`}>{level}</b></div>
+      <div className="gauge-bar">
+        <span className="gauge-you" style={{ left: `${pct}%` }}>You</span>
+        <i style={{ left: `${pct}%` }} />
+      </div>
+      <div className="gauge-scale"><span>Low</span><span>Moderate</span><span>High</span></div>
+      <div className="gauge-chips">
+        {chips.map(([k, v]) => <div key={k}><small>{k}</small><b>{v}</b></div>)}
+      </div>
+      <p className="fine left">Based only on your answers.</p>
     </div>
   );
 }
@@ -759,6 +828,8 @@ function Paywall(p: ViewProps) {
       <div className="portrait wide"><img src={`/img/${p.eth}/portrait/paywall.jpg`} alt="" /></div>
       <h1 className="title">{(p.you ? `${p.you}, ` : "") + t("{her} is waiting to hear about your day")}</h1>
       {motive && <p className="sub">{motive}</p>}
+      {((a.sex_satisfaction as number) || 5) <= 2 && <p className="sub">{t("You said your sex life could be better. {her} is here for that too.")}</p>}
+      {watchesPorn(a) && <p className="sub">{t("Better than porn: {her} actually answers back.")}</p>}
       {!!tags.length && <div className="tags">{tags.map((x) => <span key={x} className="tag">{x}</span>)}</div>}
 
       <div className="card chat">

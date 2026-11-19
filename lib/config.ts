@@ -16,6 +16,7 @@ export type Screen =
   | (Base & { kind: "factAi" })
   | (Base & { kind: "open"; key: string; chips: string[] })
   | (Base & { kind: "slider"; key: string; labels: string[] })
+  | (Base & { kind: "rating"; key: string; low: string; high: string })
   | (Base & { kind: "loader" })
   | (Base & { kind: "email" })
   | (Base & { kind: "profile" })
@@ -142,6 +143,17 @@ export const SCREENS: Screen[] = [
     exclusive: ["fine"],
   },
   {
+    n: 14, id: "evening_end", block: "him", kind: "multi", key: "evening_end",
+    q: "How do your evenings usually end?", sub: "Pick all that fit",
+    options: [
+      { id: "scrolling", label: "Scrolling my phone", emoji: "📱" },
+      { id: "porn", label: "Watching porn", emoji: "🔞" },
+      { id: "tv_gaming", label: "TV or gaming", emoji: "🎮" },
+      { id: "exhausted", label: "Falling asleep exhausted", emoji: "😴" },
+      { id: "with_someone", label: "With someone I love", emoji: "❤️" },
+    ],
+  },
+  {
     n: 14, id: "evening_text", block: "him", kind: "open", key: "evening_text",
     q: "In your own words: what would make your evenings better?", sub: "Optional",
     chips: ["Someone to talk to", "Less scrolling", "Feeling wanted"],
@@ -199,6 +211,11 @@ export const SCREENS: Screen[] = [
     labels: ["Low", "Mild", "Moderate", "High", "Very high"],
   },
   {
+    n: 23, id: "sex_satisfaction", block: "desire", kind: "rating", key: "sex_satisfaction",
+    q: "How satisfied have you been with your sex life in the past 3 months?", sub: "Rate from 1 to 5",
+    low: "Not at all", high: "Very satisfied",
+  },
+  {
     n: 23, id: "boldness", block: "desire", kind: "slider", key: "boldness",
     q: "How bold can {her} get?", sub: "You can change it any time",
     labels: ["Sweet", "Flirty", "Teasing", "Daring", "Anything goes"],
@@ -241,7 +258,10 @@ export const SCREENS: Screen[] = [
 ];
 
 // Question screens get the "x/22" counter.
-const QUESTION_KINDS = new Set(["photo", "single", "multi", "herName", "youName", "open", "slider"]);
+// Screen numbers follow the order above.
+SCREENS.forEach((s, i) => { s.n = i + 1; });
+
+const QUESTION_KINDS = new Set(["photo", "single", "multi", "herName", "youName", "open", "slider", "rating"]);
 export const QUESTION_IDS = SCREENS.filter((s) => QUESTION_KINDS.has(s.kind)).map((s) => s.id);
 
 export const PLANS = [
