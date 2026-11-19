@@ -322,3 +322,31 @@ a.legal { color: var(--accent); text-decoration: underline; text-underline-offse
 .rev-title { font-weight: 800; color: var(--accent); margin-top: 10px !important; }
 .seal { flex: 0 0 60px; height: 60px; }
 .review p { white-space: pre-line; }
+
+/* ---- v6: loader reviews marquee + AI fact screen ---- */
+.marquee { width: calc(100% + 32px); margin: 4px -16px 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.marquee-track { display: flex; gap: 12px; width: max-content; animation: marquee 26s linear infinite; padding: 2px 0; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.mq-card { flex: 0 0 240px; text-align: left; background: #161616; border: 2px solid var(--stroke); border-radius: 16px; padding: 12px 14px; }
+.mq-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.mq-head .stars { margin-left: auto; font-size: 11px; letter-spacing: 1px; }
+.mq-card p { font-size: 14px; margin-top: 8px; line-height: 1.4; }
+.rev-ava.sm { flex: 0 0 28px; height: 28px; font-size: 11px; }
+
+.ai-illu { position: relative; height: 190px; display: grid; place-items: center; margin-top: 8px; }
+.ai-heart { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: var(--grad); box-shadow: 0 0 0 12px rgba(206, 39, 81, 0.15), 0 0 0 26px rgba(206, 39, 81, 0.07); animation: beat 1.6s ease-in-out infinite; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.08); } 30% { transform: scale(1); } }
+.ai-bubble { position: absolute; font-size: 13px; font-weight: 700; padding: 8px 12px; border-radius: 14px; background: #26262b; animation: fade 0.6s ease both; }
+.ai-bubble.b1 { top: 14px; left: 8%; border-bottom-left-radius: 4px; }
+.ai-bubble.b2 { bottom: 14px; right: 8%; background: var(--sel); border: 1px solid var(--sel-stroke); border-bottom-right-radius: 4px; animation-delay: 0.4s; }
+.hl { color: var(--accent); }
+.ai-rank { display: flex; flex-direction: column; gap: 12px; }
+.rank-row { display: flex; gap: 12px; align-items: center; color: var(--muted); }
+.rank-row.on { color: #fff; }
+.rank-n { font-weight: 800; width: 28px; }
+.rank-row.on .rank-n { color: var(--accent); }
+.rank-body { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; }
+.rank-bar { height: 8px; border-radius: 6px; background: #222; overflow: hidden; }
+.rank-bar i { display: block; height: 100%; border-radius: 6px; background: #3a3c44; transform-origin: left; animation: grow 0.9s ease both; }
+.rank-row.on .rank-bar i { background: var(--grad); }
+@keyframes grow { from { transform: scaleX(0); } }

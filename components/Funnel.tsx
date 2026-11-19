@@ -152,6 +152,7 @@ function ScreenView(p: ViewProps) {
         </div>
       );
     case "fact": return <Fact next={p.next} />;
+    case "factAi": return <FactAi next={p.next} t={t} />;
     case "open": return <OpenQ {...p} s={s} />;
     case "slider": return <SliderQ {...p} s={s} />;
     case "loader": return <Loader {...p} />;
@@ -395,11 +396,52 @@ function SliderQ(p: ViewProps & { s: Extract<Screen, { kind: "slider" }> }) {
 }
 
 // ---------- 27 Loader ----------
+// Excerpts from the reviews Get Honey shows on its own paywall.
+const LOADER_QUOTES = [
+  { name: "Mike Myers", initials: "MM", color: "#f4a6c0", text: "Audio calls – excellent quality" },
+  { name: "Shaun", initials: "SH", color: "#9fe0b4", text: "Feels quite friendly and natural to talk to, not robotic" },
+  { name: "Mike Myers", initials: "MM", color: "#f4a6c0", text: "Pictures sent for any prompt I can think of" },
+  { name: "Shaun", initials: "SH", color: "#9fe0b4", text: "I've ended up using it way more than I thought I would" },
+  { name: "Mike Myers", initials: "MM", color: "#f4a6c0", text: "Very responsive, and videos are very interactive" },
+];
+
+function FactAi({ next, t }: { next: () => void; t: (s?: string) => string }) {
+  const rows = [
+    { label: "Companionship & emotional support", w: 100, on: true },
+    { label: "Organizing my life", w: 82, on: false },
+    { label: "Finding purpose", w: 70, on: false },
+  ];
+  return (
+    <div className="col">
+      <div className="ai-illu" aria-hidden="true">
+        <span className="ai-bubble b1">How was your day?</span>
+        <span className="ai-heart">
+          <svg viewBox="0 0 24 24" width="44" height="44" fill="#fff"><path d="M12 21s-7.5-4.4-9.6-9.2C.9 8.3 3.1 4.5 6.9 4.5c2.1 0 3.6 1.1 5.1 2.9 1.5-1.8 3-2.9 5.1-2.9 3.8 0 6 3.8 4.5 7.3C19.5 16.6 12 21 12 21z" /></svg>
+        </span>
+        <span className="ai-bubble b2">Tell me everything ❤️</span>
+      </div>
+      <h1 className="title">{t("You're in good company")}</h1>
+      <p className="sub">According to <b className="hl">Harvard Business Review</b>, companionship and emotional support is the <b className="hl">#1 way</b> people use AI.</p>
+      <div className="card ai-rank">
+        <div className="colhead">TOP USES OF AI IN 2025</div>
+        {rows.map((r, k) => (
+          <div key={r.label} className={`rank-row ${r.on ? "on" : ""}`}>
+            <span className="rank-n">#{k + 1}</span>
+            <span className="rank-body"><span>{r.label}</span><span className="rank-bar"><i style={{ width: `${r.w}%`, animationDelay: `${k * 0.15}s` }} /></span></span>
+          </div>
+        ))}
+        <span className="source">Source: Harvard Business Review, “How People Are Really Using Gen AI in 2025”</span>
+      </div>
+      <Bottom><button className="btn" onClick={next}>Continue</button></Bottom>
+    </div>
+  );
+}
+
 function Loader(p: ViewProps) {
   const [pct, setPct] = useState(0);
   useEffect(() => {
     if (pct >= 100) { const id = setTimeout(p.next, 600); return () => clearTimeout(id); }
-    const id = setTimeout(() => setPct((x) => Math.min(100, x + 1)), 62);
+    const id = setTimeout(() => setPct((x) => Math.min(100, x + 1)), 90);
     return () => clearTimeout(id);
   }, [pct]); // eslint-disable-line react-hooks/exhaustive-deps
   const step = (label: string, from: number, to: number) => {
@@ -421,14 +463,15 @@ function Loader(p: ViewProps) {
         {step("Her personality", 33, 66)}
         {step("Your schedule", 66, 100)}
       </div>
-      <div className="mini-banner">
-        <span className="mb-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
-            <path d="M12 15.5s-3.5-2-3.5-4.3a1.9 1.9 0 0 1 3.5-1 1.9 1.9 0 0 1 3.5 1c0 2.3-3.5 4.3-3.5 4.3z" fill="#fff" stroke="none" />
-          </svg>
-        </span>
-        <p>According to <b>Harvard Business Review</b>, companionship and emotional support is the <b>#1 way</b> people use AI.</p>
+      <div className="marquee" aria-label="What users say">
+        <div className="marquee-track">
+          {[...LOADER_QUOTES, ...LOADER_QUOTES].map((q, k) => (
+            <div key={k} className="mq-card">
+              <div className="mq-head"><span className="rev-ava sm" style={{ background: q.color }}>{q.initials}</span><b>{q.name}</b><span className="stars">★★★★★</span></div>
+              <p>“{q.text}”</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

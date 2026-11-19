@@ -13,6 +13,7 @@ export type Screen =
   | (Base & { kind: "youName" })
   | (Base & { kind: "transition"; img: string; title: string; text: string })
   | (Base & { kind: "fact" })
+  | (Base & { kind: "factAi" })
   | (Base & { kind: "open"; key: string; chips: string[] })
   | (Base & { kind: "slider"; key: string; labels: string[] })
   | (Base & { kind: "loader" })
@@ -232,10 +233,11 @@ export const SCREENS: Screen[] = [
   },
   { n: 27, id: "loader", block: "result", kind: "loader" },
   { n: 28, id: "profile", block: "result", kind: "profile" },
-  { n: 29, id: "email", block: "result", kind: "email", q: "Enter your email to save {her}", sub: "Save her profile and start chatting." },
-  { n: 30, id: "paywall", block: "pay", kind: "paywall" },
-  { n: 31, id: "checkout", block: "pay", kind: "checkout" },
-  { n: 32, id: "success", block: "pay", kind: "success" },
+  { n: 29, id: "fact_ai", block: "result", kind: "factAi" },
+  { n: 30, id: "email", block: "result", kind: "email", q: "Enter your email to save {her}", sub: "Save her profile and start chatting." },
+  { n: 31, id: "paywall", block: "pay", kind: "paywall" },
+  { n: 32, id: "checkout", block: "pay", kind: "checkout" },
+  { n: 33, id: "success", block: "pay", kind: "success" },
 ];
 
 // Question screens get the "x/22" counter.
