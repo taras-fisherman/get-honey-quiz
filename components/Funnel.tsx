@@ -11,11 +11,20 @@ import { siApple, siVisa, siMastercard, siAmericanexpress } from "simple-icons";
 
 type Answers = Record<string, string | string[] | number>;
 
+export function pathForScreen(i: number) {
+  return i <= 0 ? "/" : `/step-${SCREENS[i].id.replace(/_/g, "-")}`;
+}
+function screenFromPath(path: string) {
+  const slug = path.replace(/^\/+|\/+$/g, "").replace(/^step-/, "").replace(/-/g, "_");
+  const i = SCREENS.findIndex((x) => x.id === slug);
+  return i < 0 ? 0 : i;
+}
+
 const NAME_CHIPS = ["Mia", "Chloe", "Ava", "Lily"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function Funnel() {
-  const [idx, setIdx] = useState(0);
+  const [idx, setIdx] = useState(-1); // -1 until the URL is read on the client
   const [hist, setHist] = useState<number[]>([]);
   const [a, setA] = useState<Answers>({});
   const [herName, setHerName] = useState("");
@@ -25,11 +34,28 @@ export default function Funnel() {
   const startedAt = useRef<number>(0);
   const started = useRef(false);
 
-  const s = SCREENS[idx];
+  const s = SCREENS[Math.max(0, idx)];
   const her = herName.trim() || "Mia";
   const you = youName.trim();
   const eth = (a.ethnicity as string) || "caucasian";
   const t = (str?: string) => (str || "").replaceAll("{her}", her).replaceAll("{you}", you);
+
+  // ---------- URLs: every screen has its own address (/step-<id>) ----------
+  useEffect(() => {
+    setIdx(screenFromPath(window.location.pathname));
+    const onPop = () => {
+      setIdx(screenFromPath(window.location.pathname));
+      setHist((h) => h.slice(0, -1));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const go = (to: number, mode: "push" | "replace" = "push") => {
+    const url = pathForScreen(to) + window.location.search;
+    if (mode === "push") window.history.pushState({ idx: to }, "", url);
+    else window.history.replaceState({ idx: to }, "", url);
+    setIdx(to);
+  };
 
   // ---------- analytics ----------
   useEffect(() => {
@@ -37,6 +63,7 @@ export default function Funnel() {
   }, []);
 
   useEffect(() => {
+    if (idx < 0) return;
     window.scrollTo(0, 0);
     if (s.id === "start" && !started.current) {
       started.current = true;
@@ -68,16 +95,15 @@ export default function Funnel() {
   const next = () => {
     if (s.id === "scenario") track("quiz_completed", { duration_sec: Math.round((Date.now() - startedAt.current) / 1000) });
     setHist((h) => [...h, idx]);
-    setIdx((i) => Math.min(i + 1, SCREENS.length - 1));
+    go(Math.min(idx + 1, SCREENS.length - 1));
   };
   const back = () => {
-    if (!hist.length) return;
-    setIdx(hist[hist.length - 1]);
-    setHist(hist.slice(0, -1));
+    if (hist.length) window.history.back(); // popstate restores the screen
+    else if (idx > 0) go(idx - 1, "replace"); // opened by direct link: step back in order
   };
   const restart = () => {
     setA({}); setHerName(""); setYouName(""); setEmail(""); setPlan("3m");
-    setHist([]); started.current = false; setIdx(0);
+    setHist([]); started.current = false; go(0);
   };
 
   const answer = (key: string, value: string | string[] | number, extra: Record<string, unknown> = {}) => {
@@ -94,11 +120,12 @@ export default function Funnel() {
   const qPos = QUESTION_IDS.indexOf(s.id);
   const showHeader = !["start", "loader", "success", "checkout"].includes(s.kind);
 
+  if (idx < 0) return <main className="app" />;
   return (
     <main className="app">
       {showHeader && (
         <header className="hdr">
-          <button className="back" onClick={back} aria-label="Back" disabled={!hist.length}>
+          <button className="back" onClick={back} aria-label="Back" disabled={idx <= 0}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
           <div className="brand">Get Honey</div>
