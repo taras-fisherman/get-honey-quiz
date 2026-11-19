@@ -724,7 +724,6 @@ function Paywall(p: ViewProps) {
   const { label: timer, expired } = useCountdown();
   useEffect(() => { if (expired) track("discount_expired"); }, [expired]);
   const [gift, setGift] = useState(false);
-  const [sticky, setSticky] = useState(false);
   const plansRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLButtonElement>(null);
   const cta2Ref = useRef<HTMLButtonElement>(null);
@@ -734,17 +733,6 @@ function Paywall(p: ViewProps) {
     giftShown = true;
     const id = setTimeout(() => setGift(!offerExpired()), 400);
     return () => clearTimeout(id);
-  }, []);
-  // Sticky CTA once the first CTA has scrolled out of view.
-  useEffect(() => {
-    const onScroll = () => {
-      const r = ctaRef.current?.getBoundingClientRect();
-      const r2 = cta2Ref.current?.getBoundingClientRect();
-      const secondInView = !!r2 && r2.top < window.innerHeight && r2.bottom > 0;
-      setSticky(!!r && r.bottom < 130 && !secondInView);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   const claim = () => { setGift(false); track("discount_popup_claimed"); };
@@ -903,14 +891,6 @@ function Paywall(p: ViewProps) {
       </div>
       <p className="fine">The discounted price applies to the first period. Then your plan renews automatically at the regular price shown above.</p>
 
-      {sticky && (
-        <div className="sticky-cta">
-          <div className="sticky-in">
-            <span>{expired ? <><small>Discount</small><b>Expired</b></> : <><small>Discount ends in</small><b>{timer}</b></>}</span>
-            <button className="btn cta" onClick={p.next}>{ctaLabel}</button>
-          </div>
-        </div>
-      )}
 
       {gift && (
         <div className="modal-bg">
