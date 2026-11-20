@@ -805,7 +805,11 @@ function Paywall(p: ViewProps) {
     scenario,
   ].filter(Boolean);
   const opener = a.work_type === "shifts" ? "Long shift?" : a.work_type === "remote" ? "Stuck at home all day?" : "Long day?";
-  const msg = T("Hey {name}. {opener} Come here, tell me everything…", { name: p.you || T("you"), opener: T(opener) });
+  // Split the translated line around the name, so the name can be highlighted wherever the language puts it.
+  const NAME = "\u0000";
+  const msgParts = T("Hey {name}. {opener} Come here, tell me everything…", { name: p.you ? NAME : T("you"), opener: T(opener) }).split(NAME);
+  const msg = msgParts.flatMap((part, i) => (i === 0 ? [part] : [<span key={i} className="you-name">{p.you}</span>, part]));
+  const youPrefix = p.you ? <><span className="you-name">{p.you}</span>, </> : null;
   const teasers = [
     a.bust ? `/img/${p.eth}/bust/${a.bust}.jpg` : `/img/${p.eth}/portrait/profile.jpg`,
     a.body ? `/img/${p.eth}/body/${a.body}.jpg` : `/img/${p.eth}/portrait/paywall.jpg`,
@@ -870,7 +874,7 @@ function Paywall(p: ViewProps) {
       </div>
 
       <div className="portrait wide"><img src={`/img/${p.eth}/portrait/paywall.jpg`} alt="" /></div>
-      <h1 className="title">{(p.you ? `${p.you}, ` : "") + t("{her} is waiting to hear about your day")}</h1>
+      <h1 className="title">{youPrefix}{t("{her} is waiting to hear about your day")}</h1>
       {motive && <p className="sub">{motive}</p>}
       {((a.sex_satisfaction as number) || 5) <= 2 && <p className="sub">{t("You said your sex life could be better. {her} is here for that too.")}</p>}
       {watchesPorn(a) && <p className="sub">{t("Better than porn: {her} actually answers back.")}</p>}
@@ -892,7 +896,7 @@ function Paywall(p: ViewProps) {
         {benefits.map(([e, x]) => <div key={x} className="kline"><span className="bi">{e}</span>{x}</div>)}
       </div>
 
-      <h2 className="offer-title" ref={plansRef}>{(p.you ? `${p.you}, ` : "") + t("{her} is waiting to send you her hot photos")}</h2>
+      <h2 className="offer-title" ref={plansRef}>{youPrefix}{t("{her} is waiting to send you her hot photos")}</h2>
       {expired
         ? <div className="offer-head">{T("Your personal discount has expired")}</div>
         : <div className="offer-head">{T("Your personal discount:")} <span className="pct">{T("up to -60%")}</span></div>}

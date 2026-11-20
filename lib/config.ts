@@ -199,7 +199,7 @@ export const SCREENS: Screen[] = [
       { id: "45+", label: "45+" },
     ],
   },
-  { n: 20, id: "your_name", block: "him", kind: "youName", q: "What should {her} call you?", sub: "Only she will see it" },
+  { n: 20, id: "your_name", block: "him", kind: "youName", q: "What should {her} call you?", sub: "{her} will use it to greet you and make every chat more personal" },
   {
     n: 21, id: "behind_you", block: "desire", kind: "transition", img: "/img/common/transition/behind-you.jpg",
     title: "And when the day is behind you…",

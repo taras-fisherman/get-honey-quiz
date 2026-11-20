@@ -120,7 +120,7 @@ export const ES: Record<string, string> = {
   "Different every day": "Cada día es distinto",
   "How old are you?": "¿Cuántos años tienes?",
   "What should {her} call you?": "¿Cómo quieres que te llame {her}?",
-  "Only she will see it": "Solo ella lo verá",
+  "{her} will use it to greet you and make every chat more personal": "{her} lo usará para saludarte y hacer cada chat más personal",
   "Your name": "Tu nombre",
 
   // desire
@@ -470,7 +470,7 @@ export const PT: Record<string, string> = {
   "Different every day": "Muda todo dia",
   "How old are you?": "Quantos anos você tem?",
   "What should {her} call you?": "Como {her} deve chamar você?",
-  "Only she will see it": "Só ela vai ver",
+  "{her} will use it to greet you and make every chat more personal": "{her} vai usar para te cumprimentar e deixar cada conversa mais pessoal",
   "Your name": "Seu nome",
 
   // desire

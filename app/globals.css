@@ -433,3 +433,7 @@ a.legal { color: var(--accent); text-decoration: underline; text-underline-offse
 .lang.floating { position: absolute; top: 12px; right: 12px; z-index: 4; }
 .lang.floating .lang-btn { background: rgba(0,0,0,0.45); border-color: rgba(255,255,255,0.25); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .start-img { position: relative; }
+
+/* v10: the user's own name on the offer page — noticeable, not loud */
+.you-name { color: #f6b3a6; }
+.bubble .you-name { color: #f6b3a6; font-weight: 600; }
